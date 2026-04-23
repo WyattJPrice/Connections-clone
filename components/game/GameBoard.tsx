@@ -42,13 +42,23 @@ interface SavedState {
 export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProps) {
   const allWords = puzzle.categories.flatMap((c) => c.words);
   const wordToCategory = useCallback(
-    (word: string): Category => puzzle.categories.find((c) => c.words.includes(word))!,
+    (word: string): Category => {
+      const cat = puzzle.categories.find((c) => c.words.includes(word));
+      if (!cat) throw new Error(`Word "${word}" not found in puzzle ${puzzle.puzzleDate}`);
+      return cat;
+    },
     [puzzle]
   );
 
-  const saved = typeof window !== 'undefined'
+  const rawSaved = typeof window !== 'undefined'
     ? getSavedGameState(puzzle.puzzleDate) as SavedState | null
     : null;
+
+  // Discard save if any stored tile is not in this puzzle (stale/mismatched save)
+  const savedIsValid = rawSaved?.tiles?.length
+    ? rawSaved.tiles.every((w) => allWords.includes(w))
+    : false;
+  const saved = savedIsValid ? rawSaved : null;
 
   const [tiles, setTiles] = useState<string[]>(() => saved?.tiles ?? shuffle(allWords));
   const [selected, setSelected] = useState<Set<string>>(new Set());
