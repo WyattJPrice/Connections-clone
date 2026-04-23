@@ -316,7 +316,7 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
           <div className="flex gap-3">
             <button
               onClick={handleShuffle}
-              className="px-5 py-2.5 rounded-full font-bold text-sm border transition-opacity hover:opacity-70"
+              className="px-5 py-2.5 rounded-full font-bold text-base border transition-opacity hover:opacity-70"
               style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)', backgroundColor: 'transparent' }}
             >
               Shuffle
@@ -324,7 +324,7 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
             <button
               onClick={handleDeselectAll}
               disabled={selected.size === 0}
-              className="px-5 py-2.5 rounded-full font-bold text-sm border transition-opacity hover:opacity-70 disabled:opacity-40"
+              className="px-5 py-2.5 rounded-full font-bold text-base border transition-opacity hover:opacity-70 disabled:opacity-40"
               style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)', backgroundColor: 'transparent' }}
             >
               Deselect All
@@ -332,7 +332,7 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="px-5 py-2.5 rounded-full font-bold text-sm transition-all disabled:opacity-40"
+              className="px-5 py-2.5 rounded-full font-bold text-base transition-all disabled:opacity-40"
               style={
                 canSubmit
                   ? { backgroundColor: 'var(--button-bg)', color: 'var(--button-text)', border: 'none' }
