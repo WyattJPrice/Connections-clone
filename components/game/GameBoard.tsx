@@ -19,6 +19,10 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+function guessKey(words: string[]): string {
+  return [...words].sort().join('|');
+}
+
 interface GameBoardProps {
   puzzle: Puzzle;
   onOpenStats: () => void;
@@ -31,18 +35,20 @@ interface SavedState {
   mistakes: number;
   gameOver: boolean;
   won: boolean;
+  previousGuesses: string[];
+  firstSolvedColor: Color | null;
 }
 
 export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProps) {
   const allWords = puzzle.categories.flatMap((c) => c.words);
   const wordToCategory = useCallback(
-    (word: string): Category => {
-      return puzzle.categories.find((c) => c.words.includes(word))!;
-    },
+    (word: string): Category => puzzle.categories.find((c) => c.words.includes(word))!,
     [puzzle]
   );
 
-  const saved = typeof window !== 'undefined' ? getSavedGameState(puzzle.puzzleDate) as SavedState | null : null;
+  const saved = typeof window !== 'undefined'
+    ? getSavedGameState(puzzle.puzzleDate) as SavedState | null
+    : null;
 
   const [tiles, setTiles] = useState<string[]>(() => saved?.tiles ?? shuffle(allWords));
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -50,12 +56,26 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
   const [mistakes, setMistakes] = useState(saved?.mistakes ?? 0);
   const [gameOver, setGameOver] = useState(saved?.gameOver ?? false);
   const [won, setWon] = useState(saved?.won ?? false);
+  const [previousGuesses, setPreviousGuesses] = useState<Set<string>>(
+    () => new Set(saved?.previousGuesses ?? [])
+  );
+  const [submittedWrong, setSubmittedWrong] = useState(false);
   const [shakingTiles, setShakingTiles] = useState<Set<string>>(new Set());
-  const [jumpingTiles, setJumpingTiles] = useState<Set<string>>(new Set());
+  const [jumpingTiles, setJumpingTiles] = useState<Map<string, number>>(new Map());
+  const [mergingTiles, setMergingTiles] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
   const [newSolvedColor, setNewSolvedColor] = useState<Color | null>(null);
-  const statsRecorded = useRef(false);
-  const firstSolvedColor = useRef<Color | null>(null);
+  const [revealedFailColors, setRevealedFailColors] = useState<Color[]>(() =>
+    saved?.gameOver && !saved?.won
+      ? DIFFICULTY_ORDER.filter((c) => !(saved?.solvedColors ?? []).includes(c))
+      : []
+  );
+
+  // Persist the first-solved color across sessions for purpleFirst tracking
+  const firstSolvedColor = useRef<Color | null>(saved?.firstSolvedColor ?? null);
+  // Prevent double-recording when revisiting a completed game
+  const statsRecorded = useRef(saved?.gameOver === true);
+  const failRevealRan = useRef(saved?.gameOver === true && !saved?.won);
 
   const solvedCategories = DIFFICULTY_ORDER.filter((c) => solvedColors.includes(c)).map(
     (color) => puzzle.categories.find((cat) => cat.color === color)!
@@ -65,23 +85,38 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
     (w) => !solvedColors.includes(wordToCategory(w).color)
   );
 
+  // Persist all state (including game-over final state)
   useEffect(() => {
-    if (gameOver) return;
-    const state: SavedState = { tiles, solvedColors, mistakes, gameOver, won };
+    const state: SavedState = {
+      tiles,
+      solvedColors,
+      mistakes,
+      gameOver,
+      won,
+      previousGuesses: Array.from(previousGuesses),
+      firstSolvedColor: firstSolvedColor.current,
+    };
     saveGameState(puzzle.puzzleDate, state);
-  }, [tiles, solvedColors, mistakes, gameOver, won, puzzle.puzzleDate]);
+  }, [tiles, solvedColors, mistakes, gameOver, won, previousGuesses, puzzle.puzzleDate]);
 
+  // Staggered reveal of remaining categories on loss
   useEffect(() => {
-    if (gameOver && !statsRecorded.current) {
-      statsRecorded.current = true;
-      const purpleFirst = firstSolvedColor.current === 'purple';
-      recordGameResult(puzzle.puzzleDate, mistakes, won, purpleFirst);
-    }
-  }, [gameOver, mistakes, won, puzzle.puzzleDate]);
+    if (!gameOver || won || failRevealRan.current) return;
+    failRevealRan.current = true;
+    const unsolvedColors = DIFFICULTY_ORDER.filter((c) => !solvedColors.includes(c));
+    const timers = unsolvedColors.map((color, idx) =>
+      setTimeout(
+        () => setRevealedFailColors((prev) => [...prev, color]),
+        idx * 600
+      )
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [gameOver, won, solvedColors]);
 
   function toggleSelect(word: string) {
     if (gameOver) return;
     if (solvedColors.includes(wordToCategory(word).color)) return;
+    setSubmittedWrong(false);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(word)) {
@@ -102,40 +137,63 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
   }
 
   function handleDeselectAll() {
+    setSubmittedWrong(false);
     setSelected(new Set());
   }
 
   async function handleSubmit() {
-    if (selected.size !== 4 || gameOver) return;
+    if (selected.size !== 4 || gameOver || submittedWrong) return;
 
     const selectedWords = Array.from(selected);
+    const key = guessKey(selectedWords);
+
+    if (previousGuesses.has(key)) {
+      setToast('Already guessed!');
+      return;
+    }
+
     const categories = selectedWords.map((w) => wordToCategory(w).color);
     const allSame = categories.every((c) => c === categories[0]);
+
+    setPreviousGuesses((prev) => new Set([...prev, key]));
 
     if (allSame) {
       const color = categories[0] as Color;
 
-      // Jump animation
-      const jumpSet = new Set(selectedWords);
-      setJumpingTiles(jumpSet);
-      setTimeout(() => setJumpingTiles(new Set()), 600);
-
-      await new Promise((r) => setTimeout(r, 400));
-
       if (!firstSolvedColor.current) firstSolvedColor.current = color;
-      setSolvedColors((prev) => {
-        const next = [...prev, color];
-        if (next.length === 4) {
-          setGameOver(true);
-          setWon(true);
-        }
-        return next;
-      });
+
+      // Staggered bounce
+      const staggerMap = new Map(selectedWords.map((w, i) => [w, i * 100]));
+      setJumpingTiles(staggerMap);
+      await new Promise((r) => setTimeout(r, 900));
+      setJumpingTiles(new Map());
+
+      // Merge up
+      setMergingTiles(new Set(selectedWords));
+      await new Promise((r) => setTimeout(r, 300));
+      setMergingTiles(new Set());
+
+      // Determine if this is the last solve (check before any async, value is captured)
+      const isLastSolve = solvedColors.length + 1 === puzzle.categories.length;
+
+      // Record stats once, right here, with exact values
+      if (isLastSolve && !statsRecorded.current) {
+        statsRecorded.current = true;
+        const purpleFirst = firstSolvedColor.current === 'purple';
+        recordGameResult(puzzle.puzzleDate, mistakes, true, purpleFirst);
+      }
+
+      const newSolvedColors = [...solvedColors, color];
+      setSolvedColors(newSolvedColors);
       setNewSolvedColor(color);
       setTimeout(() => setNewSolvedColor(null), 600);
       setSelected(new Set());
+
+      if (isLastSolve) {
+        setGameOver(true);
+        setWon(true);
+      }
     } else {
-      // Check "one away"
       const colorCounts = categories.reduce<Record<string, number>>((acc, c) => {
         acc[c] = (acc[c] ?? 0) + 1;
         return acc;
@@ -143,14 +201,20 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
       const maxSame = Math.max(...Object.values(colorCounts));
       if (maxSame === 3) setToast('One away…');
 
-      // Shake
       setShakingTiles(new Set(selectedWords));
       setTimeout(() => setShakingTiles(new Set()), 600);
+
+      setSubmittedWrong(true);
 
       const newMistakes = mistakes + 1;
       setMistakes(newMistakes);
 
       if (newMistakes >= 4) {
+        // Record stats before updating state
+        if (!statsRecorded.current) {
+          statsRecorded.current = true;
+          recordGameResult(puzzle.puzzleDate, newMistakes, false, false);
+        }
         setGameOver(true);
         setWon(false);
         setSelected(new Set());
@@ -158,13 +222,13 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
     }
   }
 
-  const canSubmit = selected.size === 4 && !gameOver;
+  const canSubmit = selected.size === 4 && !gameOver && !submittedWrong;
 
   return (
-    <div className="flex flex-col items-center w-full max-w-[500px] mx-auto px-3 pb-8">
+    <div className="flex flex-col items-center w-full max-w-170 mx-auto px-3 pb-8">
       {/* Header */}
       <div className="w-full flex items-center justify-between py-3 mb-1 border-b" style={{ borderColor: 'var(--border)' }}>
-        <span className="text-lg font-black tracking-tight" style={{ color: 'var(--text)' }}>
+        <span className="text-2xl font-black tracking-tight" style={{ color: 'var(--text)', fontFamily: 'var(--font-karnak)' }}>
           Connections
         </span>
         <div className="flex items-center gap-3">
@@ -177,13 +241,12 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
         </div>
       </div>
 
-      <p className="text-sm text-center py-3" style={{ color: 'var(--text-muted)' }}>
+      <p className="text-base text-center py-3" style={{ color: 'var(--text-muted)' }}>
         Create four groups of four!
       </p>
 
       {/* Board */}
       <div className="w-full flex flex-col gap-2">
-        {/* Solved rows */}
         {solvedCategories.map((cat) => (
           <CategoryRow
             key={cat.color}
@@ -192,10 +255,9 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
           />
         ))}
 
-        {/* Remaining tiles */}
         {!gameOver && (
-          <div className="grid grid-cols-4 gap-2">
-            {remainingTiles.map((word, i) => (
+          <div className="grid grid-cols-[repeat(4,144px)] sm:grid-cols-[repeat(4,150px)] gap-2 mx-auto w-fit">
+            {remainingTiles.map((word) => (
               <Tile
                 key={word}
                 word={word}
@@ -203,25 +265,25 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
                 solved={false}
                 shaking={shakingTiles.has(word)}
                 jumping={jumpingTiles.has(word)}
-                jumpDelay={i * 80}
+                merging={mergingTiles.has(word)}
+                jumpDelay={jumpingTiles.get(word) ?? 0}
                 onClick={() => toggleSelect(word)}
               />
             ))}
           </div>
         )}
 
-        {/* Game over: show remaining unsolved */}
         {gameOver && !won && (
           <>
-            {DIFFICULTY_ORDER.filter((c) => !solvedColors.includes(c)).map((color) => {
+            {revealedFailColors.map((color) => {
               const cat = puzzle.categories.find((c) => c.color === color)!;
-              return <CategoryRow key={color} category={cat} animate={false} />;
+              return <CategoryRow key={color} category={cat} animate={true} />;
             })}
           </>
         )}
       </div>
 
-      {/* Game over messages */}
+      {/* Game over message */}
       {gameOver && (
         <div className="mt-6 text-center animate-fade-in">
           <p className="text-2xl font-black mb-1" style={{ color: 'var(--text)' }}>
@@ -260,8 +322,12 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="px-5 py-2.5 rounded-full font-bold text-sm border transition-all hover:opacity-70 disabled:opacity-40"
-              style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)', backgroundColor: 'transparent' }}
+              className="px-5 py-2.5 rounded-full font-bold text-sm transition-all disabled:opacity-40"
+              style={
+                canSubmit
+                  ? { backgroundColor: 'var(--button-bg)', color: 'var(--button-text)', border: 'none' }
+                  : { backgroundColor: 'transparent', color: 'var(--text)', border: '1px solid var(--outline-button-border)' }
+              }
             >
               Submit
             </button>
@@ -269,9 +335,7 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
         </div>
       )}
 
-      {toast && (
-        <Toast message={toast} onDone={() => setToast(null)} />
-      )}
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );
 }

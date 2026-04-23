@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 
-export async function GET() {
-  const today = new Date().toISOString().slice(0, 10);
+export async function GET(request: Request) {
+  // Prefer the client's local date (sent as ?date=YYYY-MM-DD) so that
+  // timezone differences don't cause UTC to roll over to the next day.
+  const { searchParams } = new URL(request.url);
+  const dateParam = searchParams.get('date');
+  const today = dateParam ?? new Date().toISOString().slice(0, 10);
 
   const { data: puzzle, error } = await supabaseAdmin
     .from('puzzles')

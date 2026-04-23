@@ -31,7 +31,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         {/* Dark Mode */}
         <SettingsRow
           label="Dark Mode"
-          description="Ignore your device setting and always render in dark mode."
+          description=""
           active={theme === 'dark'}
           onToggle={() => setTheme(theme === 'dark' ? 'system' : 'dark')}
         />
@@ -41,13 +41,13 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         {/* Light Mode */}
         <SettingsRow
           label="Light Mode"
-          description="Ignore your device setting and always render in light mode."
+          description=""
           active={theme === 'light'}
           onToggle={() => setTheme(theme === 'light' ? 'system' : 'light')}
         />
 
         <div className="mt-6 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-          Connections Clone
+          Connections Clone • <a href="https://wyattprice.dev">Wyatt Price</a>
         </div>
       </div>
     </div>

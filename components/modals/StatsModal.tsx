@@ -12,7 +12,10 @@ export function StatsModal({ onClose }: StatsModalProps) {
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
+    // Read immediately, then re-read after a tick in case stats were just written
     setStats(getStats());
+    const t = setTimeout(() => setStats(getStats()), 50);
+    return () => clearTimeout(t);
   }, []);
 
   const winPct = stats && stats.gamesPlayed > 0
@@ -95,7 +98,7 @@ export function StatsModal({ onClose }: StatsModalProps) {
                       <span className="text-sm font-bold w-3 text-right">{n}</span>
                       <div className="flex-1 flex items-center">
                         <div
-                          className="h-6 rounded flex items-center justify-end pr-2 min-w-[28px] transition-all"
+                          className="h-6 rounded flex items-center justify-end pr-2 min-w-7 transition-all"
                           style={{
                             width: `${Math.max(pct, 8)}%`,
                             backgroundColor: count > 0 ? '#6b6b63' : 'var(--border)',
