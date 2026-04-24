@@ -104,6 +104,14 @@ export function recordGameResult(
   }
 
   saveStats(stats);
+
+  // Fire-and-forget to server for aggregate admin stats
+  fetch('/api/game/result', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ puzzleDate, mistakes, won }),
+  }).catch(() => {});
+
   return stats;
 }
 

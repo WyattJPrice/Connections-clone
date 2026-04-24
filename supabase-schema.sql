@@ -32,5 +32,28 @@ create policy "Public read categories"
   on categories for select
   using (true);
 
+-- game_results: one row per completed game, written by the client
+create table if not exists game_results (
+  id uuid primary key default gen_random_uuid(),
+  puzzle_date date not null,
+  puzzle_number integer,
+  won boolean not null,
+  mistakes integer not null check (mistakes between 0 and 4),
+  completed_at timestamptz default now()
+);
+
+create index if not exists game_results_puzzle_date_idx on game_results(puzzle_date);
+create index if not exists game_results_completed_at_idx on game_results(completed_at);
+
+alter table game_results enable row level security;
+
+-- Anyone can insert a result (no auth required to play)
+create policy "Public insert game_results"
+  on game_results for insert
+  with check (true);
+
+-- Only service role can read (admin API uses service role)
+-- No public select policy needed
+
 -- Service role has full access (used by admin API routes)
 -- No additional policies needed — service role bypasses RLS
