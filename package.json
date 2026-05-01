@@ -1,6 +1,7 @@
 {
-  "name": "temp-app",
-  "version": "0.1.0",
+  "name": "connections-clone",
+  "version": "1.0.0",
+  "description": "A NYT Connections clone",
   "private": true,
   "scripts": {
     "dev": "next dev",
