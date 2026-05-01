@@ -218,7 +218,6 @@ export default function CreatePage() {
                     onChange={(e) => {
                       const v = e.target.value;
                       setEditState((s) => s ? { ...s, name: v } : s);
-                      checkProfanity([v, ...editState.words]);
                     }}
                     className="w-full px-3 py-2 rounded-lg border text-sm outline-none uppercase font-bold"
                     style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
@@ -234,7 +233,6 @@ export default function CreatePage() {
                           const next = [...editState.words] as [string, string, string, string];
                           next[i] = e.target.value;
                           setEditState((s) => s ? { ...s, words: next } : s);
-                          checkProfanity([editState.name, ...next]);
                         }}
                         className="w-full px-3 py-2 rounded-lg border text-sm outline-none uppercase font-bold"
                         style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
