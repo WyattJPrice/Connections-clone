@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
 
   const { data: puzzle } = await supabaseAdmin
     .from('puzzles')
-    .select('id, puzzle_date, puzzle_number, categories(id, name, color, words)')
+    .select('id, puzzle_date, puzzle_number, categories(id, name, color, words, creator_name)')
     .eq('puzzle_date', date)
     .single();
 
@@ -27,11 +27,12 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
       id: puzzle.id,
       puzzleDate: puzzle.puzzle_date,
       puzzleNumber: puzzle.puzzle_number,
-      categories: (puzzle.categories as Array<{id: string; name: string; color: string; words: string[]}>).map((c) => ({
+      categories: (puzzle.categories as Array<{id: string; name: string; color: string; words: string[]; creator_name: string | null}>).map((c) => ({
         id: c.id,
         name: c.name,
         color: c.color,
         words: c.words,
+        creatorName: c.creator_name ?? undefined,
       })),
     },
   });
@@ -44,9 +45,21 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   const { date } = await ctx.params;
   const body = await req.json();
 
+  // Auto-assign puzzle number: use provided value or compute max + 1
+  let puzzleNumber = body.puzzleNumber as number | undefined;
+  if (!puzzleNumber) {
+    const { data: last } = await supabaseAdmin
+      .from('puzzles')
+      .select('puzzle_number')
+      .order('puzzle_number', { ascending: false })
+      .limit(1)
+      .single();
+    puzzleNumber = (last?.puzzle_number ?? 0) + 1;
+  }
+
   const { data: puzzle, error: puzzleError } = await supabaseAdmin
     .from('puzzles')
-    .insert({ puzzle_date: date, puzzle_number: body.puzzleNumber })
+    .insert({ puzzle_date: date, puzzle_number: puzzleNumber })
     .select('id')
     .single();
 
@@ -55,11 +68,12 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   }
 
   const { error: catError } = await supabaseAdmin.from('categories').insert(
-    body.categories.map((c: { color: string; name: string; words: string[] }) => ({
+    body.categories.map((c: { color: string; name: string; words: string[]; creatorName?: string | null }) => ({
       puzzle_id: puzzle.id,
       color: c.color,
       name: c.name,
       words: c.words,
+      creator_name: c.creatorName ?? null,
     }))
   );
 
@@ -95,11 +109,12 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   await supabaseAdmin.from('categories').delete().eq('puzzle_id', puzzle.id);
 
   const { error: catError } = await supabaseAdmin.from('categories').insert(
-    body.categories.map((c: { color: string; name: string; words: string[] }) => ({
+    body.categories.map((c: { color: string; name: string; words: string[]; creatorName?: string | null }) => ({
       puzzle_id: puzzle.id,
       color: c.color,
       name: c.name,
       words: c.words,
+      creator_name: c.creatorName ?? null,
     }))
   );
 

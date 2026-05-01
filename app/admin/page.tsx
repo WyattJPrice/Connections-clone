@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { GameHeader } from '@/components/game/GameHeader';
 import {
   format,
   startOfMonth,
@@ -110,7 +111,9 @@ export default function AdminCalendarPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-6" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+      <Suspense fallback={null}><GameHeader /></Suspense>
+      <div className="flex-1 px-4 py-6">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -193,6 +196,7 @@ export default function AdminCalendarPage() {
         <div className="mt-4 text-sm" style={{ color: 'var(--text-muted)' }}>
           {puzzleDates.length} puzzle{puzzleDates.length !== 1 ? 's' : ''} created
         </div>
+      </div>
       </div>
     </div>
   );

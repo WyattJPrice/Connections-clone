@@ -29,6 +29,11 @@ export function CategoryRow({ category, animate }: CategoryRowProps) {
       <p className="font-normal text-sm text-black/80 text-center mt-0.5">
         {category.words.join(', ')}
       </p>
+      {category.creatorName && (
+        <p className="font-normal text-xs text-black/60 text-center mt-1">
+          by {category.creatorName}
+        </p>
+      )}
     </div>
   );
 }

@@ -5,6 +5,22 @@ export interface Category {
   name: string;
   color: Color;
   words: string[];
+  creatorName?: string;
+}
+
+export interface UserCategory {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  name: string;
+  words: string[];
+  createdAt: string;
+}
+
+export interface UserProfile {
+  id: string;
+  firstName: string;
+  email: string;
 }
 
 export interface Puzzle {

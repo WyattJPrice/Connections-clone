@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
-import { Color, Category } from '@/lib/types';
+import { Color, Category, UserCategory } from '@/lib/types';
+import { CommunityBrowserModal } from '@/components/admin/CommunityBrowserModal';
+import { GameHeader } from '@/components/game/GameHeader';
 
 const COLORS: Color[] = ['yellow', 'blue', 'green', 'purple'];
 const COLOR_LABELS: Record<Color, string> = {
@@ -24,6 +26,7 @@ interface EditorCategory {
   color: Color;
   name: string;
   words: [string, string, string, string];
+  creatorName?: string;
 }
 
 function emptyCategory(color: Color): EditorCategory {
@@ -39,7 +42,7 @@ export default function PuzzleEditorPage() {
   const params = useParams();
   const dateStr = params.date as string;
 
-  const [puzzleNumber, setPuzzleNumber] = useState('');
+  const [puzzleNumber, setPuzzleNumber] = useState<number | null>(null);
   const [categories, setCategories] = useState<EditorCategory[]>(
     COLORS.map(emptyCategory)
   );
@@ -48,6 +51,7 @@ export default function PuzzleEditorPage() {
   const [deleting, setDeleting] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [browserForColor, setBrowserForColor] = useState<Color | null>(null);
 
   const formattedDate = (() => {
     try {
@@ -58,12 +62,14 @@ export default function PuzzleEditorPage() {
   })();
 
   useEffect(() => {
-    fetch(`/api/admin/puzzles/${dateStr}`)
-      .then((r) => r.json())
-      .then((data) => {
+    const existing = fetch(`/api/admin/puzzles/${dateStr}`).then((r) => r.json());
+    const allPuzzles = fetch('/api/admin/puzzles').then((r) => r.json());
+
+    Promise.all([existing, allPuzzles])
+      .then(([data, listData]) => {
         if (data.puzzle) {
           setExistingId(data.puzzle.id);
-          setPuzzleNumber(String(data.puzzle.puzzleNumber));
+          setPuzzleNumber(data.puzzle.puzzleNumber);
           setCategories(
             COLORS.map((color) => {
               const cat: Category | undefined = data.puzzle.categories.find(
@@ -74,9 +80,15 @@ export default function PuzzleEditorPage() {
                 color,
                 name: cat?.name ?? '',
                 words: cat ? (cat.words as [string, string, string, string]) : ['', '', '', ''],
+                creatorName: cat?.creatorName,
               };
             })
           );
+        } else {
+          // Auto-assign next number for new puzzle
+          const nums: number[] = (listData.puzzles ?? []).map((p: { puzzleNumber: number }) => p.puzzleNumber);
+          const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+          setPuzzleNumber(next);
         }
       })
       .catch(() => {})
@@ -90,7 +102,7 @@ export default function PuzzleEditorPage() {
       prev.map((cat) => {
         if (cat.color !== color) return cat;
         if (field === 'name') {
-          return { ...cat, name: valueOrIndex as string };
+          return { ...cat, name: valueOrIndex as string, creatorName: undefined };
         } else {
           const newWords = [...cat.words] as [string, string, string, string];
           newWords[valueOrIndex as number] = wordValue ?? '';
@@ -100,11 +112,22 @@ export default function PuzzleEditorPage() {
     );
   }
 
+  function applyCommunityCategory(color: Color, uc: UserCategory) {
+    setCategories((prev) =>
+      prev.map((cat) => {
+        if (cat.color !== color) return cat;
+        return {
+          ...cat,
+          name: uc.name,
+          words: uc.words as [string, string, string, string],
+          creatorName: uc.creatorName,
+        };
+      })
+    );
+  }
+
   function validate(): string[] {
     const errs: string[] = [];
-    if (!puzzleNumber || isNaN(Number(puzzleNumber)) || Number(puzzleNumber) < 1) {
-      errs.push('Puzzle number must be a positive integer.');
-    }
     for (const cat of categories) {
       if (!cat.name.trim()) errs.push(`${COLOR_LABELS[cat.color]}: category name is required.`);
       if (cat.words.some((w) => !w.trim())) {
@@ -126,11 +149,12 @@ export default function PuzzleEditorPage() {
     try {
       const body = {
         puzzleDate: dateStr,
-        puzzleNumber: parseInt(puzzleNumber),
+        puzzleNumber: puzzleNumber ?? 1,
         categories: categories.map((cat) => ({
           color: cat.color,
           name: cat.name.trim(),
           words: cat.words.map((w) => w.trim().toUpperCase()),
+          creatorName: cat.creatorName ?? null,
         })),
       };
       const res = await fetch(`/api/admin/puzzles/${dateStr}`, {
@@ -170,7 +194,9 @@ export default function PuzzleEditorPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-6" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+      <Suspense fallback={null}><GameHeader /></Suspense>
+      <div className="flex-1 px-4 py-6">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
@@ -190,25 +216,18 @@ export default function PuzzleEditorPage() {
           </div>
         </div>
 
-        {/* Puzzle number */}
-        <div className="mb-5">
-          <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>
-            Puzzle Number
-          </label>
-          <input
-            type="number"
-            min={1}
-            value={puzzleNumber}
-            onChange={(e) => setPuzzleNumber(e.target.value)}
-            placeholder="e.g. 1"
-            className="w-full px-4 py-2.5 rounded-lg border text-base outline-none"
-            style={{
-              backgroundColor: 'var(--tile-bg)',
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-            }}
-          />
-        </div>
+        {/* Puzzle number — auto-assigned, shown read-only */}
+        {puzzleNumber != null && (
+          <div className="mb-5 flex items-center gap-2">
+            <span className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>Puzzle</span>
+            <span
+              className="px-3 py-1 rounded-full text-sm font-black"
+              style={{ backgroundColor: 'var(--tile-bg)', color: 'var(--text)' }}
+            >
+              No. {puzzleNumber}
+            </span>
+          </div>
+        )}
 
         {/* Categories */}
         <div className="flex flex-col gap-5">
@@ -220,13 +239,30 @@ export default function PuzzleEditorPage() {
             >
               {/* Color header */}
               <div
-                className="px-4 py-2.5 flex items-center gap-2"
+                className="px-4 py-2.5 flex items-center justify-between gap-2"
                 style={{ backgroundColor: COLOR_HEX[cat.color] }}
               >
-                <span className="font-black text-sm text-black/80 uppercase tracking-widest">
-                  {cat.color}
-                </span>
-                <span className="text-xs text-black/60">— {COLOR_LABELS[cat.color]}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-black text-sm text-black/80 uppercase tracking-widest">
+                    {cat.color}
+                  </span>
+                  <span className="text-xs text-black/60">— {COLOR_LABELS[cat.color]}</span>
+                  {cat.creatorName && (
+                    <span className="text-xs text-black/60 italic truncate">· by {cat.creatorName}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBrowserForColor(cat.color)}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-black/70 transition-opacity hover:opacity-60 shrink-0"
+                  style={{ backgroundColor: 'rgba(0,0,0,0.12)' }}
+                  title="Browse community categories"
+                  aria-label="Browse community categories"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M11 13H6q-.425 0-.712-.288T5 12t.288-.712T6 11h5V6q0-.425.288-.712T12 5t.713.288T13 6v5h5q.425 0 .713.288T19 12t-.288.713T18 13h-5v5q0 .425-.288.713T12 19t-.712-.288T11 18z"/>
+                  </svg>
+                </button>
               </div>
 
               <div className="p-4 flex flex-col gap-3" style={{ backgroundColor: 'var(--surface)' }}>
@@ -307,6 +343,14 @@ export default function PuzzleEditorPage() {
           )}
         </div>
       </div>
+      </div>
+
+      {browserForColor && (
+        <CommunityBrowserModal
+          onSelect={(uc) => applyCommunityCategory(browserForColor, uc)}
+          onClose={() => setBrowserForColor(null)}
+        />
+      )}
     </div>
   );
 }

@@ -64,7 +64,7 @@ export default function SplashPage() {
           <button
             onClick={() => info?.exists && router.push('/play')}
             disabled={loading || !info?.exists}
-            className="w-full py-4 rounded-full font-bold text-lg transition-all"
+            className="btn-hover w-full py-4 rounded-full font-bold text-lg"
             style={{
               backgroundColor: '#1a1a1a',
               color: '#ffffff',
@@ -72,7 +72,33 @@ export default function SplashPage() {
               cursor: loading || !info?.exists ? 'default' : 'pointer',
             }}
           >
-            {loading ? 'Loading…' : info?.exists ? 'Play' : 'No puzzle today'}
+            {loading ? 'Loading…' : info?.exists ? "Play Today's" : 'No puzzle today'}
+          </button>
+          <button
+            onClick={() => router.push('/custom')}
+            className="btn-hover-outline w-full py-3 rounded-full font-bold text-base"
+            style={{
+              backgroundColor: 'transparent',
+              color: '#1a1a1a',
+              border: '2px solid #1a1a1a',
+              cursor: 'pointer',
+              opacity: 0.85,
+            }}
+          >
+            Play Custom
+          </button>
+          <button
+            onClick={() => router.push('/leaderboard')}
+            className="btn-hover-outline w-full py-2.5 rounded-full font-bold text-sm"
+            style={{
+              backgroundColor: 'transparent',
+              color: '#1a1a1a',
+              border: '1.5px solid rgba(26,26,26,0.35)',
+              cursor: 'pointer',
+              opacity: 0.75,
+            }}
+          >
+            Leaderboard
           </button>
         </div>
 

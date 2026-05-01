@@ -7,6 +7,7 @@ import { CategoryRow } from './CategoryRow';
 import { MistakeDots } from './MistakeDots';
 import { Toast } from '@/components/ui/Toast';
 import { saveGameState, getSavedGameState, recordGameResult } from '@/lib/stats';
+import { markCategoryCompleted } from '@/lib/customProgress';
 
 const DIFFICULTY_ORDER: Color[] = ['yellow', 'blue', 'green', 'purple'];
 
@@ -27,6 +28,9 @@ interface GameBoardProps {
   puzzle: Puzzle;
   onOpenStats: () => void;
   onOpenSettings: () => void;
+  noStats?: boolean;
+  onWin?: () => void;
+  onBack?: () => void;
 }
 
 interface SavedState {
@@ -39,7 +43,7 @@ interface SavedState {
   firstSolvedColor: Color | null;
 }
 
-export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProps) {
+export function GameBoard({ puzzle, onOpenStats, onOpenSettings, noStats = false, onWin, onBack }: GameBoardProps) {
   const allWords = puzzle.categories.flatMap((c) => c.words);
   const wordToCategory = useCallback(
     (word: string): Category => {
@@ -95,8 +99,9 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
     (w) => !solvedColors.includes(wordToCategory(w).color)
   );
 
-  // Persist all state (including game-over final state)
+  // Persist all state (including game-over final state) — skip for custom games
   useEffect(() => {
+    if (noStats) return;
     const state: SavedState = {
       tiles,
       solvedColors,
@@ -107,7 +112,7 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
       firstSolvedColor: firstSolvedColor.current,
     };
     saveGameState(puzzle.puzzleDate, state);
-  }, [tiles, solvedColors, mistakes, gameOver, won, previousGuesses, puzzle.puzzleDate]);
+  }, [tiles, solvedColors, mistakes, gameOver, won, previousGuesses, puzzle.puzzleDate, noStats]);
 
   // Staggered reveal of remaining categories on loss
   useEffect(() => {
@@ -186,12 +191,20 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
       // Determine if this is the last solve (check before any async, value is captured)
       const isLastSolve = solvedColors.length + 1 === puzzle.categories.length;
 
+      // Track completed community categories for the browse page
+      if (noStats) {
+        const solvedCat = puzzle.categories.find((c) => c.color === color);
+        if (solvedCat) markCategoryCompleted(solvedCat.id);
+      }
+
       // Record stats once, right here, with exact values
-      if (isLastSolve && !statsRecorded.current) {
+      if (isLastSolve && !statsRecorded.current && !noStats) {
         statsRecorded.current = true;
         const purpleFirst = firstSolvedColor.current === 'purple';
         recordGameResult(puzzle.puzzleDate, mistakes, true, purpleFirst);
       }
+
+      if (isLastSolve) onWin?.();
 
       const newSolvedColors = [...solvedColors, color];
       setSolvedColors(newSolvedColors);
@@ -221,7 +234,7 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
 
       if (newMistakes >= 4) {
         // Record stats before updating state
-        if (!statsRecorded.current) {
+        if (!statsRecorded.current && !noStats) {
           statsRecorded.current = true;
           recordGameResult(puzzle.puzzleDate, newMistakes, false, false);
         }
@@ -238,14 +251,25 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
     <div className="flex flex-col items-center w-full max-w-170 mx-auto px-3 pb-8">
       {/* Header */}
       <div className="w-full flex items-center justify-between py-3 mb-1 border-b" style={{ borderColor: 'var(--border)' }}>
-        <span className="text-2xl font-black tracking-tight" style={{ color: 'var(--text)', fontFamily: 'var(--font-karnak)' }}>
-          Connections
-        </span>
+        {onBack ? (
+          <button
+            onClick={onBack}
+            className="btn-hover-ghost flex items-center gap-1 text-2xl font-black tracking-tight"
+            style={{ color: 'var(--text)', fontFamily: 'var(--font-karnak)' }}
+          >
+            <span className="text-xl leading-none">‹</span>
+            Connections
+          </button>
+        ) : (
+          <span className="text-2xl font-black tracking-tight" style={{ color: 'var(--text)', fontFamily: 'var(--font-karnak)' }}>
+            Connections
+          </span>
+        )}
         <div className="flex items-center gap-3">
-          <button onClick={onOpenStats} className="p-1 rounded transition-opacity hover:opacity-70" aria-label="Statistics">
+          <button onClick={onOpenStats} className="btn-hover-ghost p-1 rounded" aria-label="Statistics">
             <BarChartIcon />
           </button>
-          <button onClick={onOpenSettings} className="p-1 rounded transition-opacity hover:opacity-70" aria-label="Settings">
+          <button onClick={onOpenSettings} className="btn-hover-ghost p-1 rounded" aria-label="Settings">
             <GearIcon />
           </button>
         </div>
@@ -301,11 +325,20 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
           </p>
           <button
             onClick={onOpenStats}
-            className="mt-3 px-8 py-3 rounded-full font-bold text-sm"
+            className="btn-hover mt-3 px-8 py-3 rounded-full font-bold text-sm"
             style={{ backgroundColor: 'var(--button-bg)', color: 'var(--button-text)' }}
           >
             View Statistics
           </button>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="btn-hover-outline mt-2 px-8 py-3 rounded-full font-bold text-sm border"
+              style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)', backgroundColor: 'transparent' }}
+            >
+              Go Back
+            </button>
+          )}
         </div>
       )}
 
@@ -316,7 +349,7 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
           <div className="flex gap-3">
             <button
               onClick={handleShuffle}
-              className="px-5 py-2.5 rounded-full font-bold text-base border transition-opacity hover:opacity-70"
+              className="btn-hover-outline px-5 py-2.5 rounded-full font-bold text-base border"
               style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)', backgroundColor: 'transparent' }}
             >
               Shuffle
@@ -324,7 +357,7 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
             <button
               onClick={handleDeselectAll}
               disabled={selected.size === 0}
-              className="px-5 py-2.5 rounded-full font-bold text-base border transition-opacity hover:opacity-70 disabled:opacity-40"
+              className="btn-hover-outline px-5 py-2.5 rounded-full font-bold text-base border disabled:opacity-40"
               style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)', backgroundColor: 'transparent' }}
             >
               Deselect All
@@ -332,7 +365,7 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings }: GameBoardProp
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="px-5 py-2.5 rounded-full font-bold text-base transition-all disabled:opacity-40"
+              className="btn-hover px-5 py-2.5 rounded-full font-bold text-base disabled:opacity-40"
               style={
                 canSubmit
                   ? { backgroundColor: 'var(--button-bg)', color: 'var(--button-text)', border: 'none' }

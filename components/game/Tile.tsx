@@ -18,10 +18,10 @@ export function Tile({ word, selected, solved, shaking, jumping, merging, jumpDe
     <button
       onClick={onClick}
       className={`
+        tile-hover
         flex items-center justify-center w-full
         h-36 sm:h-20
         rounded-lg font-black text-xl tracking-wide uppercase select-none
-        transition-transform duration-100 active:scale-95
         ${shaking ? 'animate-shake' : ''}
         ${jumping ? 'animate-jump' : ''}
         ${merging ? 'animate-merge' : ''}
