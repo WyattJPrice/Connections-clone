@@ -120,13 +120,22 @@ export default function AdminCalendarPage() {
           <h1 className="text-2xl font-black" style={{ color: 'var(--text)' }}>
             Puzzle Admin
           </h1>
-          <button
-            onClick={handleLogout}
-            className="text-sm font-bold px-4 py-2 rounded-full border transition-opacity hover:opacity-70"
-            style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)' }}
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push('/admin/stats')}
+              className="text-sm font-bold px-4 py-2 rounded-full border transition-opacity hover:opacity-70"
+              style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)' }}
+            >
+              Stats
+            </button>
+            <button
+              onClick={handleLogout}
+              className="text-sm font-bold px-4 py-2 rounded-full border transition-opacity hover:opacity-70"
+              style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)' }}
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         {/* Calendar card */}
