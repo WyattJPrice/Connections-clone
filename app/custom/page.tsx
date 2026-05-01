@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -111,7 +111,7 @@ export default function CustomPage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
-      <GameHeader />
+      <Suspense fallback={null}><GameHeader /></Suspense>
 
       <div className="flex-1 px-4 py-6">
         <div className="max-w-lg mx-auto flex flex-col gap-8">
