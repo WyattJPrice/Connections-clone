@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getStats } from '@/lib/stats';
 import { Stats } from '@/lib/types';
+import { useKey } from '@/lib/useKey';
 
 interface StatsModalProps {
   onClose: () => void;
@@ -10,6 +11,7 @@ interface StatsModalProps {
 
 export function StatsModal({ onClose }: StatsModalProps) {
   const [stats, setStats] = useState<Stats | null>(null);
+  useKey('Escape', onClose);
 
   useEffect(() => {
     // Read immediately, then re-read after a tick in case stats were just written
@@ -66,6 +68,24 @@ export function StatsModal({ onClose }: StatsModalProps) {
                   </span>
                 </div>
               ))}
+            </div>
+
+            <hr style={{ borderColor: 'var(--border)' }} className="mb-5" />
+
+            {/* All-time finishes */}
+            <div className="grid grid-cols-3 gap-2 mb-5">
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-black">{stats.gamesWon}</span>
+                <span className="text-xs text-center leading-tight mt-0.5" style={{ color: 'var(--text-muted)' }}>Daily Wins</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-black">{stats.customWins ?? 0}</span>
+                <span className="text-xs text-center leading-tight mt-0.5" style={{ color: 'var(--text-muted)' }}>Custom Wins</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-black">{stats.gamesWon + (stats.customWins ?? 0)}</span>
+                <span className="text-xs text-center leading-tight mt-0.5" style={{ color: 'var(--text-muted)' }}>Total Finishes</span>
+              </div>
             </div>
 
             <hr style={{ borderColor: 'var(--border)' }} className="mb-5" />

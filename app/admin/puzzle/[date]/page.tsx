@@ -1,11 +1,12 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { Color, Category, UserCategory } from '@/lib/types';
 import { CommunityBrowserModal } from '@/components/admin/CommunityBrowserModal';
-import { GameHeader } from '@/components/game/GameHeader';
+import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
+import { useKey } from '@/lib/useKey';
 
 const COLORS: Color[] = ['yellow', 'blue', 'green', 'purple'];
 const COLOR_LABELS: Record<Color, string> = {
@@ -52,6 +53,12 @@ export default function PuzzleEditorPage() {
   const [existingId, setExistingId] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [browserForColor, setBrowserForColor] = useState<Color | null>(null);
+
+  useKey(
+    'Enter',
+    () => { if (!saving && !deleting && !browserForColor) handleSave(); },
+    !loading && !browserForColor
+  );
 
   const formattedDate = (() => {
     try {
@@ -195,8 +202,8 @@ export default function PuzzleEditorPage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
-      <Suspense fallback={null}><GameHeader /></Suspense>
-      <div className="flex-1 px-4 py-6">
+      <Navbar />
+      <div className="flex-1 px-4 py-6" style={{ paddingTop: NAVBAR_HEIGHT + 24 }}>
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
+import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 
 interface PuzzleRow {
   date: string;
@@ -43,7 +44,8 @@ export default function AdminStatsPage() {
   const maxMistake = data ? Math.max(...Object.values(data.mistakeDist), 1) : 1;
 
   return (
-    <div className="min-h-screen px-4 py-6" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen px-4 py-6" style={{ backgroundColor: 'var(--bg)', paddingTop: NAVBAR_HEIGHT + 24 }}>
+      <Navbar />
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">

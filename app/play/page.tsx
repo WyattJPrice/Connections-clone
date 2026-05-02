@@ -5,8 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Puzzle } from '@/lib/types';
 import { GameBoard } from '@/components/game/GameBoard';
 import { GameHeader } from '@/components/game/GameHeader';
-import { StatsModal } from '@/components/modals/StatsModal';
-import { SettingsModal } from '@/components/modals/SettingsModal';
+import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 import { recordCompletion } from '@/lib/recordCompletion';
 
 function PlayContent() {
@@ -17,8 +16,6 @@ function PlayContent() {
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showStats, setShowStats] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
 
   const handleWin = useCallback(() => {
     if (puzzle) recordCompletion('daily', puzzle.puzzleDate);
@@ -69,17 +66,16 @@ function PlayContent() {
   }
 
   return (
-    <div className="min-h-screen py-4" style={{ backgroundColor: 'var(--bg)' }}>
-      <GameHeader />
-      <GameBoard
-        puzzle={puzzle}
-        onOpenStats={() => setShowStats(true)}
-        onOpenSettings={() => setShowSettings(true)}
-        onWin={handleWin}
-        onBack={() => router.push('/')}
-      />
-      {showStats && <StatsModal onClose={() => setShowStats(false)} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <Navbar />
+      <div style={{ paddingTop: NAVBAR_HEIGHT }}>
+        <GameHeader />
+        <GameBoard
+          puzzle={puzzle}
+          onWin={handleWin}
+          onBack={() => router.push('/')}
+        />
+      </div>
     </div>
   );
 }

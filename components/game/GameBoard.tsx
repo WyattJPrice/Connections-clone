@@ -8,6 +8,8 @@ import { MistakeDots } from './MistakeDots';
 import { Toast } from '@/components/ui/Toast';
 import { saveGameState, getSavedGameState, recordGameResult } from '@/lib/stats';
 import { markCategoryCompleted } from '@/lib/customProgress';
+import { useKey } from '@/lib/useKey';
+import { useModals } from '@/components/modals/ModalsProvider';
 
 const DIFFICULTY_ORDER: Color[] = ['yellow', 'blue', 'green', 'purple'];
 
@@ -26,8 +28,6 @@ function guessKey(words: string[]): string {
 
 interface GameBoardProps {
   puzzle: Puzzle;
-  onOpenStats: () => void;
-  onOpenSettings: () => void;
   noStats?: boolean;
   onWin?: () => void;
   onBack?: () => void;
@@ -43,7 +43,8 @@ interface SavedState {
   firstSolvedColor: Color | null;
 }
 
-export function GameBoard({ puzzle, onOpenStats, onOpenSettings, noStats = false, onWin, onBack }: GameBoardProps) {
+export function GameBoard({ puzzle, noStats = false, onWin, onBack }: GameBoardProps) {
+  const { openStats } = useModals();
   const allWords = puzzle.categories.flatMap((c) => c.words);
   const wordToCategory = useCallback(
     (word: string): Category => {
@@ -247,34 +248,10 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings, noStats = false
 
   const canSubmit = selected.size === 4 && !gameOver && !submittedWrong;
 
+  useKey('Enter', () => { if (canSubmit) handleSubmit(); }, canSubmit);
+
   return (
     <div className="flex flex-col items-center w-full max-w-170 mx-auto px-3 pb-8">
-      {/* Header */}
-      <div className="w-full flex items-center justify-between py-3 mb-1 border-b" style={{ borderColor: 'var(--border)' }}>
-        {onBack ? (
-          <button
-            onClick={onBack}
-            className="btn-hover-ghost flex items-center gap-1 text-2xl font-black tracking-tight"
-            style={{ color: 'var(--text)', fontFamily: 'var(--font-karnak)' }}
-          >
-            <span className="text-xl leading-none">‹</span>
-            Connections
-          </button>
-        ) : (
-          <span className="text-2xl font-black tracking-tight" style={{ color: 'var(--text)', fontFamily: 'var(--font-karnak)' }}>
-            Connections
-          </span>
-        )}
-        <div className="flex items-center gap-3">
-          <button onClick={onOpenStats} className="btn-hover-ghost p-1 rounded" aria-label="Statistics">
-            <BarChartIcon />
-          </button>
-          <button onClick={onOpenSettings} className="btn-hover-ghost p-1 rounded" aria-label="Settings">
-            <GearIcon />
-          </button>
-        </div>
-      </div>
-
       <p className="text-base text-center py-3" style={{ color: 'var(--text-muted)' }}>
         Create four groups of four!
       </p>
@@ -324,7 +301,7 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings, noStats = false
             {won ? 'Impressive!' : 'Better luck next time!'}
           </p>
           <button
-            onClick={onOpenStats}
+            onClick={openStats}
             className="btn-hover mt-3 px-8 py-3 rounded-full font-bold text-sm"
             style={{ backgroundColor: 'var(--button-bg)', color: 'var(--button-text)' }}
           >
@@ -380,24 +357,5 @@ export function GameBoard({ puzzle, onOpenStats, onOpenSettings, noStats = false
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
-  );
-}
-
-function BarChartIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10" />
-      <line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" />
-    </svg>
-  );
-}
-
-function GearIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
   );
 }

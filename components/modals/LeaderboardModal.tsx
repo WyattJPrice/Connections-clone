@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { LeaderboardEntry } from '@/app/api/leaderboard/route';
+import { useKey } from '@/lib/useKey';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
@@ -13,6 +14,7 @@ export function LeaderboardModal({ onClose }: LeaderboardModalProps) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'total' | 'daily' | 'custom'>('total');
+  useKey('Escape', onClose);
 
   useEffect(() => {
     fetch('/api/leaderboard')

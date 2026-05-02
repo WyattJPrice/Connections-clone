@@ -15,7 +15,15 @@ const defaultStats: Stats = {
   purpleFirst: 0,
   lastPlayedDate: null,
   lastWonDate: null,
+  customWins: 0,
 };
+
+export function incrementCustomWins(): void {
+  if (typeof window === 'undefined') return;
+  const stats = getStats();
+  stats.customWins = (stats.customWins ?? 0) + 1;
+  saveStats(stats);
+}
 
 export function getStats(): Stats {
   if (typeof window === 'undefined') return defaultStats;

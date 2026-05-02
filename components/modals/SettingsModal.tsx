@@ -1,6 +1,7 @@
 'use client';
 
 import { useTheme } from '@/components/ThemeProvider';
+import { useKey } from '@/lib/useKey';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -8,6 +9,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
   const { theme, setTheme } = useTheme();
+  useKey('Escape', onClose);
 
   return (
     <div

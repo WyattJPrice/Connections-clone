@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { ModalsProvider } from '@/components/modals/ModalsProvider';
 
 const karnak = localFont({
   src: '../public/fonts/karnakcondensed-normal-700.ttf',
@@ -33,7 +34,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning className={`${karnak.variable} ${franklin.variable}`}>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ModalsProvider>{children}</ModalsProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

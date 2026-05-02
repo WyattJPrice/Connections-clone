@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { UserCategory } from '@/lib/types';
+import { useKey } from '@/lib/useKey';
 
 interface Props {
   onSelect: (cat: UserCategory) => void;
@@ -12,6 +13,7 @@ export function CommunityBrowserModal({ onSelect, onClose }: Props) {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<UserCategory[]>([]);
   const [loading, setLoading] = useState(false);
+  useKey('Escape', onClose);
 
   const fetchCategories = useCallback(async (name: string) => {
     setLoading(true);

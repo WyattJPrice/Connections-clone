@@ -39,7 +39,7 @@ export default function SplashPage() {
     >
       <div className="flex flex-col items-center gap-6 w-full max-w-sm">
         {/* Logo */}
-        <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-black/20">
+        <div className="w-25 h-25 rounded-xl overflow-hidden">
           <Image
             src="/connections.svg"
             alt="Connections"

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { containsProfanity } from '@/lib/profanity';
 
+export const dynamic = 'force-dynamic';
+
 function anonClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,7 +40,7 @@ export async function GET(req: NextRequest) {
     const idList = ids.split(',').filter(Boolean);
     const { data, error } = await db
       .from('user_categories')
-      .select('id, creator_id, creator_name, name, words, created_at')
+      .select('id, creator_id, creator_name, name, words, created_at, play_count')
       .in('id', idList);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({
@@ -49,13 +51,14 @@ export async function GET(req: NextRequest) {
         name: c.name,
         words: c.words,
         createdAt: c.created_at,
+        playCount: c.play_count ?? 0,
       })),
     });
   }
 
   let query = db
     .from('user_categories')
-    .select('id, creator_id, creator_name, name, words, created_at')
+    .select('id, creator_id, creator_name, name, words, created_at, play_count')
     .order('created_at', { ascending: false });
 
   if (creatorName) {
@@ -86,6 +89,7 @@ export async function GET(req: NextRequest) {
       name: c.name,
       words: c.words,
       createdAt: c.created_at,
+      playCount: c.play_count ?? 0,
     })),
   });
 }
@@ -115,7 +119,7 @@ export async function POST(req: NextRequest) {
       name: name.trim().toUpperCase(),
       words: words.map((w: string) => w.trim().toUpperCase()),
     })
-    .select('id, creator_id, creator_name, name, words, created_at')
+    .select('id, creator_id, creator_name, name, words, created_at, play_count')
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -128,6 +132,7 @@ export async function POST(req: NextRequest) {
       name: data.name,
       words: data.words,
       createdAt: data.created_at,
+      playCount: data.play_count ?? 0,
     },
   });
 }

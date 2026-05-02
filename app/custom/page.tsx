@@ -1,15 +1,17 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  format, startOfMonth, endOfMonth, eachDayOfInterval,
-  getDay, isSameMonth, isSameDay, addMonths, subMonths,
+  format, startOfMonth, endOfMonth,
+  isSameMonth, addMonths, subMonths,
+  startOfWeek, endOfWeek, addDays, isFuture,
 } from 'date-fns';
 import { UserCategory } from '@/lib/types';
-import { GameHeader } from '@/components/game/GameHeader';
+import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 import { Toast } from '@/components/ui/Toast';
 import { getCompletedCategoryIds } from '@/lib/customProgress';
+import { useKey } from '@/lib/useKey';
 
 interface PuzzleDate {
   puzzleDate: string;
@@ -31,6 +33,10 @@ export default function CustomPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalSort, setModalSort] = useState<'all' | 'completed' | 'unsolved'>('all');
+
+  useKey('Escape', () => setModalOpen(false), modalOpen);
 
   useEffect(() => {
     setCompletedIds(getCompletedCategoryIds());
@@ -50,7 +56,7 @@ export default function CustomPage() {
       const url = name.trim()
         ? `/api/user-categories?creatorName=${encodeURIComponent(name.trim())}`
         : '/api/user-categories';
-      const r = await fetch(url);
+      const r = await fetch(url, { cache: 'no-store' });
       const d = await r.json();
       setResults(d.categories ?? []);
     } catch {
@@ -103,17 +109,71 @@ export default function CustomPage() {
   }
 
   // Calendar helpers
-  const puzzleDateSet = new Set(puzzleDates.map((p) => p.puzzleDate));
-  const monthStart = startOfMonth(viewMonth);
-  const monthEnd = endOfMonth(viewMonth);
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  const leadingBlanks = getDay(monthStart);
+  function getPuzzleForDate(date: Date): PuzzleDate | undefined {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return puzzleDates.find((p) => p.puzzleDate === dateStr);
+  }
+
+  function renderCalendar() {
+    const monthStart = startOfMonth(viewMonth);
+    const monthEnd = endOfMonth(viewMonth);
+    const calStart = startOfWeek(monthStart);
+    const calEnd = endOfWeek(monthEnd);
+
+    const rows: React.ReactNode[] = [];
+    let day = calStart;
+
+    while (day <= calEnd) {
+      const week: React.ReactNode[] = [];
+      for (let i = 0; i < 7; i++) {
+        const currentDay = day;
+        const inMonth = isSameMonth(currentDay, viewMonth);
+        const puzzle = getPuzzleForDate(currentDay);
+        const isFutureDate = isFuture(currentDay);
+
+        week.push(
+          <button
+            key={currentDay.toISOString()}
+            onClick={() =>
+              puzzle && !isFutureDate && router.push(`/play?date=${format(currentDay, 'yyyy-MM-dd')}`)
+            }
+            disabled={!puzzle || isFutureDate}
+            className={`
+              aspect-square flex flex-col items-center justify-center rounded-lg text-sm font-medium transition-all
+              ${inMonth && puzzle && !isFutureDate ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}
+              ${!inMonth ? 'opacity-20' : ''}
+            `}
+            style={{
+              backgroundColor: puzzle && !isFutureDate
+                ? '#a0c35a'
+                : inMonth
+                ? 'var(--tile-bg)'
+                : 'transparent',
+              color: puzzle && !isFutureDate ? '#1a1a1a' : 'var(--text)',
+            }}
+          >
+            <span className="font-black text-sm">{format(currentDay, 'd')}</span>
+            {puzzle && !isFutureDate && (
+              <span className="text-xs opacity-70">#{puzzle.puzzleNumber}</span>
+            )}
+          </button>
+        );
+        day = addDays(day, 1);
+      }
+      rows.push(
+        <div key={day.toISOString()} className="grid grid-cols-7 gap-1.5">
+          {week}
+        </div>
+      );
+    }
+    return rows;
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
-      <Suspense fallback={null}><GameHeader /></Suspense>
+      <Navbar />
 
-      <div className="flex-1 px-4 py-6">
+      <div className="flex-1 px-4 py-6" style={{ paddingTop: NAVBAR_HEIGHT + 24 }}>
         <div className="max-w-lg mx-auto flex flex-col gap-8">
 
           {/* ── Section 1: Previous Daily Puzzles ── */}
@@ -149,53 +209,21 @@ export default function CustomPage() {
                   </button>
                 </div>
 
-                {/* Day labels */}
-                <div className="grid grid-cols-7 px-2 pt-2" style={{ backgroundColor: 'var(--bg)' }}>
+                {/* Day of week headers */}
+                <div className="grid grid-cols-7 gap-1.5 mb-1.5">
                   {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                    <div key={d} className="text-center text-xs font-bold py-1" style={{ color: 'var(--text-muted)' }}>
+                    <div
+                      key={d}
+                      className="text-center text-xs font-bold py-1"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
                       {d}
                     </div>
                   ))}
                 </div>
 
-                {/* Day grid */}
-                <div className="grid grid-cols-7 gap-y-1 px-2 pb-3" style={{ backgroundColor: 'var(--bg)' }}>
-                  {Array.from({ length: leadingBlanks }).map((_, i) => (
-                    <div key={`blank-${i}`} />
-                  ))}
-                  {days.map((day) => {
-                    const dateStr = format(day, 'yyyy-MM-dd');
-                    const hasPuzzle = puzzleDateSet.has(dateStr);
-                    const today = isSameDay(day, new Date());
-                    const inMonth = isSameMonth(day, viewMonth);
-                    return (
-                      <button
-                        key={dateStr}
-                        onClick={() => hasPuzzle && router.push(`/play?date=${dateStr}`)}
-                        disabled={!hasPuzzle}
-                        className="relative flex flex-col items-center py-1 rounded-lg transition-all"
-                        style={{
-                          opacity: inMonth ? 1 : 0.3,
-                          cursor: hasPuzzle ? 'pointer' : 'default',
-                          backgroundColor: today ? 'var(--tile-selected)' : 'transparent',
-                        }}
-                      >
-                        <span
-                          className="text-sm font-bold"
-                          style={{ color: today ? 'var(--tile-selected-text, var(--bg))' : 'var(--text)' }}
-                        >
-                          {format(day, 'd')}
-                        </span>
-                        {hasPuzzle && (
-                          <span
-                            className="w-1.5 h-1.5 rounded-full mt-0.5"
-                            style={{ backgroundColor: '#ba81c5' }}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                {/* Calendar grid */}
+                <div className="flex flex-col gap-1.5">{renderCalendar()}</div>
               </div>
             )}
           </section>
@@ -270,7 +298,7 @@ export default function CustomPage() {
               </div>
             )}
 
-            {/* Results */}
+            {/* Results - Tile View */}
             {searchLoading ? (
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Searching…</p>
             ) : results.length === 0 ? (
@@ -278,104 +306,274 @@ export default function CustomPage() {
                 {search ? 'No categories found.' : 'No community categories yet. Be the first to create one!'}
               </p>
             ) : (
-              <div className="flex flex-col gap-2">
-                {results.map((cat) => {
-                  const isCompleted = completedIds.has(cat.id);
-                  const isSelected = selected.has(cat.id);
+              <div>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {results
+                    .filter((cat) => !completedIds.has(cat.id))
+                    .slice(0, 10)
+                    .map((cat) => {
+                    const isCompleted = completedIds.has(cat.id);
+                    const isSelected = selected.has(cat.id);
 
-                  if (isCompleted) {
                     return (
                       <button
                         key={cat.id}
                         onClick={() => toggleSelect(cat.id)}
-                        className="card-hover w-full text-left rounded-xl border px-4 py-3 transition-all"
+                        className="rounded-xl border transition-all flex items-center gap-3 px-4 text-left"
                         style={{
-                          borderColor: isSelected ? '#ba81c5' : '#a0c35a',
+                          height: '80px',
+                          borderColor: isSelected ? '#ba81c5' : isCompleted ? '#a0c35a' : 'var(--border)',
                           borderWidth: isSelected ? '2px' : '1px',
-                          backgroundColor: isSelected ? 'rgba(186,129,197,0.12)' : 'rgba(160,195,90,0.08)',
+                          backgroundColor: isSelected ? 'rgba(186,129,197,0.12)' : isCompleted ? 'rgba(160,195,90,0.08)' : 'var(--tile-bg)',
                         }}
                       >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <p className="font-black text-sm uppercase tracking-wide" style={{ color: 'var(--text)' }}>
-                            {cat.name}
-                          </p>
-                          <span
-                            className="text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0"
-                            style={{
-                              backgroundColor: isSelected ? '#ba81c5' : '#a0c35a',
-                              color: '#fff',
-                            }}
-                          >
-                            {isSelected ? '✓ Selected' : '✓ Solved'}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1 mb-1.5">
-                          {cat.words.map((w) => (
-                            <span
-                              key={w}
-                              className="px-2 py-0.5 rounded-full text-xs font-bold"
-                              style={{
-                                backgroundColor: isSelected ? '#ba81c5' : 'var(--border)',
-                                color: isSelected ? '#fff' : 'var(--text)',
-                              }}
-                            >
-                              {w}
-                            </span>
-                          ))}
-                        </div>
-                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                          by {cat.creatorName} · {format(new Date(cat.createdAt), 'MMM d, yyyy')}
-                        </p>
-                      </button>
-                    );
-                  }
-
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => toggleSelect(cat.id)}
-                      className="card-hover w-full text-left rounded-xl border transition-all"
-                      style={{
-                        borderColor: isSelected ? '#ba81c5' : 'var(--border)',
-                        borderWidth: isSelected ? '2px' : '1px',
-                        backgroundColor: isSelected ? 'rgba(186,129,197,0.12)' : 'var(--tile-bg)',
-                      }}
-                    >
-                      <div className="flex items-center gap-3 px-4 py-3">
                         <span
                           className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
                           style={{
-                            borderColor: isSelected ? '#ba81c5' : 'var(--border)',
-                            backgroundColor: isSelected ? '#ba81c5' : 'transparent',
+                            borderColor: isSelected ? '#ba81c5' : isCompleted ? '#a0c35a' : 'var(--border)',
+                            backgroundColor: isSelected ? '#ba81c5' : isCompleted ? '#a0c35a' : 'transparent',
                           }}
                         >
-                          {isSelected && (
+                          {(isSelected || isCompleted) && (
                             <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
                               <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           )}
                         </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                            by {cat.creatorName}
-                          </p>
-                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                            {format(new Date(cat.createdAt), 'MMM d, yyyy')}
-                          </p>
+                        <div className="flex-1 min-w-0">
+                          {isCompleted ? (
+                            <>
+                              <p className="font-black text-sm uppercase tracking-wide truncate" style={{ color: 'var(--text)' }}>
+                                {cat.name}
+                              </p>
+                              <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                {format(new Date(cat.createdAt), 'MMM d, yyyy')} · {cat.playCount ?? 0} {(cat.playCount ?? 0) === 1 ? 'play' : 'plays'}
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+                                by {cat.creatorName}
+                              </p>
+                              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                {format(new Date(cat.createdAt), 'MMM d, yyyy')} · {cat.playCount ?? 0} {(cat.playCount ?? 0) === 1 ? 'play' : 'plays'}
+                              </p>
+                            </>
+                          )}
                         </div>
-                        <span
-                          className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0"
-                          style={{
-                            backgroundColor: isSelected ? '#ba81c5' : 'var(--border)',
-                            color: isSelected ? '#fff' : 'var(--text-muted)',
-                          }}
-                        >
-                          4 words
-                        </span>
-                      </div>
-                    </button>
+                        {isCompleted && (
+                          <span
+                            className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0"
+                            style={{ backgroundColor: isSelected ? '#ba81c5' : '#a0c35a', color: '#fff' }}
+                          >
+                            {isSelected ? 'Selected' : 'Solved'}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {(() => {
+                  const unsolvedShown = Math.min(
+                    10,
+                    results.filter((c) => !completedIds.has(c.id)).length
                   );
-                })}
+                  return results.length > unsolvedShown ? (
+                    <button
+                      onClick={() => setModalOpen(true)}
+                      className="btn-hover w-full py-2.5 rounded-lg font-bold text-sm"
+                      style={{ backgroundColor: 'var(--tile-bg)', color: 'var(--text)' }}
+                    >
+                      View All {results.length} Categories ›
+                    </button>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
+            {/* Modal - Browse All Categories */}
+            {modalOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+                onClick={() => setModalOpen(false)}
+              >
+                <div
+                  className="rounded-2xl w-full max-w-4xl flex flex-col overflow-hidden"
+                  style={{ backgroundColor: 'var(--bg)', maxHeight: '85vh' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Modal Header */}
+                  <div className="border-b px-6 py-4 flex items-center justify-between shrink-0" style={{ borderColor: 'var(--border)' }}>
+                    <h3 className="font-black text-lg" style={{ color: 'var(--text)' }}>
+                      All Categories
+                      <span className="ml-2 text-sm font-normal" style={{ color: 'var(--text-muted)' }}>
+                        {results.length} total
+                      </span>
+                    </h3>
+                    <button
+                      onClick={() => setModalOpen(false)}
+                      className="w-8 h-8 flex items-center justify-center rounded-full text-lg font-bold btn-hover-ghost"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {/* Modal Controls */}
+                  <div className="border-b px-6 py-3 flex items-center gap-3 shrink-0" style={{ borderColor: 'var(--border)' }}>
+                    <input
+                      type="text"
+                      placeholder="Search by name…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="flex-1 px-4 py-2 rounded-lg border text-sm outline-none"
+                      style={{
+                        backgroundColor: 'var(--tile-bg)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--text)',
+                      }}
+                    />
+                    <div className="flex gap-1.5 shrink-0">
+                      {(['all', 'completed', 'unsolved'] as const).map((sort) => (
+                        <button
+                          key={sort}
+                          onClick={() => setModalSort(sort)}
+                          className="text-xs font-bold px-3 py-1.5 rounded-full border transition-all"
+                          style={
+                            modalSort === sort
+                              ? { backgroundColor: 'var(--button-bg)', color: 'var(--button-text)', borderColor: 'var(--button-bg)' }
+                              : { backgroundColor: 'transparent', color: 'var(--text)', borderColor: 'var(--border)' }
+                          }
+                        >
+                          {sort === 'all' ? 'All' : sort === 'completed' ? 'Solved' : 'Unsolved'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Modal Content */}
+                  <div className="overflow-y-auto flex-1 px-6 py-4">
+                    <div className="grid grid-cols-2 gap-2">
+                      {results
+                        .filter((cat) => {
+                          if (modalSort === 'completed') return completedIds.has(cat.id);
+                          if (modalSort === 'unsolved') return !completedIds.has(cat.id);
+                          return true;
+                        })
+                        .sort((a, b) => {
+                          const aCompleted = completedIds.has(a.id) ? 1 : 0;
+                          const bCompleted = completedIds.has(b.id) ? 1 : 0;
+                          return aCompleted - bCompleted;
+                        })
+                        .map((cat) => {
+                          const isCompleted = completedIds.has(cat.id);
+                          const isSelected = selected.has(cat.id);
+
+                          return (
+                            <button
+                              key={cat.id}
+                              onClick={() => toggleSelect(cat.id)}
+                              className="rounded-lg border transition-all flex items-center gap-3 px-4 text-left"
+                              style={{
+                                height: '80px',
+                                borderColor: isSelected ? '#ba81c5' : isCompleted ? '#a0c35a' : 'var(--border)',
+                                borderWidth: isSelected ? '2px' : '1px',
+                                backgroundColor: isSelected ? 'rgba(186,129,197,0.12)' : isCompleted ? 'rgba(160,195,90,0.08)' : 'var(--tile-bg)',
+                              }}
+                            >
+                              {/* Selection indicator */}
+                              <span
+                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
+                                style={{
+                                  borderColor: isSelected ? '#ba81c5' : isCompleted ? '#a0c35a' : 'var(--border)',
+                                  backgroundColor: isSelected ? '#ba81c5' : isCompleted ? '#a0c35a' : 'transparent',
+                                }}
+                              >
+                                {(isSelected || isCompleted) && (
+                                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                    <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                )}
+                              </span>
+
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                {isCompleted ? (
+                                  <>
+                                    <p className="font-black text-sm uppercase tracking-wide truncate" style={{ color: 'var(--text)' }}>
+                                      {cat.name}
+                                    </p>
+                                    <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                      {format(new Date(cat.createdAt), 'MMM d, yyyy')} · {cat.playCount ?? 0} {(cat.playCount ?? 0) === 1 ? 'play' : 'plays'}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+                                      by {cat.creatorName}
+                                    </p>
+                                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                      {format(new Date(cat.createdAt), 'MMM d, yyyy')} · {cat.playCount ?? 0} {(cat.playCount ?? 0) === 1 ? 'play' : 'plays'}
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+
+                              {/* Status badge */}
+                              {isCompleted && (
+                                <span
+                                  className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0"
+                                  style={{ backgroundColor: isSelected ? '#ba81c5' : '#a0c35a', color: '#fff' }}
+                                >
+                                  {isSelected ? 'Selected' : 'Solved'}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  {selected.size > 0 && (
+                    <div className="border-t px-6 py-4 flex items-center justify-between shrink-0" style={{ borderColor: 'var(--border)' }}>
+                      <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+                        {selected.size} / 4 selected
+                      </span>
+                      <div className="flex gap-2">
+                        {selected.size === 4 && (
+                          <button
+                            onClick={() => { setModalOpen(false); handlePlay(); }}
+                            className="btn-hover px-5 py-2 rounded-full font-bold text-sm"
+                            style={{ backgroundColor: 'var(--button-bg)', color: 'var(--button-text)' }}
+                          >
+                            Play Selected ›
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setModalOpen(false)}
+                          className="btn-hover-outline px-4 py-2 rounded-full font-bold text-sm border"
+                          style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {selected.size === 0 && (
+                    <div className="border-t px-6 py-4 flex justify-end shrink-0" style={{ borderColor: 'var(--border)' }}>
+                      <button
+                        onClick={() => setModalOpen(false)}
+                        className="btn-hover-outline px-4 py-2 rounded-full font-bold text-sm border"
+                        style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </section>

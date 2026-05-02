@@ -5,9 +5,10 @@ import { supabase } from '@/lib/supabase';
 import { getFirstName } from '@/lib/auth';
 import { containsProfanity } from '@/lib/profanity';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
-import { GameHeader } from '@/components/game/GameHeader';
+import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 import { Toast } from '@/components/ui/Toast';
 import { UserCategory } from '@/lib/types';
+import { useKey } from '@/lib/useKey';
 import type { Session } from '@supabase/supabase-js';
 
 type Tab = 'mine' | 'create';
@@ -33,6 +34,16 @@ export default function CreatePage() {
   // Edit state
   const [editState, setEditState] = useState<EditState | null>(null);
   const [editSaving, setEditSaving] = useState(false);
+
+  useKey('Escape', () => setEditState(null), !!editState);
+  useKey(
+    'Enter',
+    () => {
+      if (editState && !editSaving) handleEditSave();
+      else if (tab === 'create' && !saving) handleCreate();
+    },
+    !!editState || tab === 'create'
+  );
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -157,8 +168,8 @@ export default function CreatePage() {
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
-        <GameHeader />
-        <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6" style={{ paddingTop: NAVBAR_HEIGHT }}>
           <div className="text-center">
             <h1 className="text-3xl font-black mb-2" style={{ color: 'var(--text)', fontFamily: 'var(--font-karnak)' }}>
               Create Categories
@@ -175,8 +186,8 @@ export default function CreatePage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
-      <GameHeader />
-      <div className="flex-1 px-4 py-6">
+      <Navbar />
+      <div className="flex-1 px-4 py-6" style={{ paddingTop: NAVBAR_HEIGHT + 24 }}>
       <div className="max-w-lg mx-auto">
         {/* Greeting */}
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Hi, {firstName}!</p>

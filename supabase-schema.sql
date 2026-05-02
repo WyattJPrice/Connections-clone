@@ -73,6 +73,8 @@ create table if not exists user_categories (
   updated_at timestamptz default now()
 );
 
+alter table user_categories add column if not exists play_count integer not null default 0;
+
 create index if not exists user_categories_creator_name_idx on user_categories(creator_name);
 
 alter table user_categories enable row level security;

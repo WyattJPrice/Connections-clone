@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { LeaderboardEntry } from '@/app/api/leaderboard/route';
+import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
@@ -27,7 +28,8 @@ export default function LeaderboardPage() {
   });
 
   return (
-    <div className="min-h-screen px-4 py-6" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen px-4 py-6" style={{ backgroundColor: 'var(--bg)', paddingTop: NAVBAR_HEIGHT + 24 }}>
+      <Navbar />
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">

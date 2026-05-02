@@ -15,6 +15,7 @@
     --button-bg: #1a1a1a;
     --button-text: #ffffff;
     --outline-button-border: #1a1a1a;
+    --navbar-hover-bg: #ebebeb;
   }
 
   [data-theme="dark"] {
@@ -31,6 +32,7 @@
     --button-bg: #ffffff;
     --button-text: #121213;
     --outline-button-border: #ffffff;
+    --navbar-hover-bg: #363636;
   }
 
   * {
@@ -277,4 +279,36 @@ button {
 
 button:disabled {
   cursor: default;
+}
+
+/* ── Navbar icon buttons & menu items — square gray hover ───────────────── */
+.navbar-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 0;
+  color: var(--text);
+  background-color: transparent;
+  transition: background-color 0.12s ease, transform 0.1s ease;
+}
+
+.navbar-icon-btn:hover {
+  background-color: var(--navbar-hover-bg);
+}
+
+.navbar-icon-btn:active {
+  transform: scale(0.96);
+}
+
+.navbar-menu-item {
+  border-radius: 6px;
+  margin: 0 6px;
+  width: calc(100% - 12px);
+  transition: background-color 0.12s ease;
+}
+
+.navbar-menu-item:hover {
+  background-color: var(--navbar-hover-bg);
 }

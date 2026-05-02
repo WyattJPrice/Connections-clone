@@ -3,11 +3,11 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { recordCompletion } from '@/lib/recordCompletion';
+import { incrementCustomWins } from '@/lib/stats';
 import { Puzzle, UserCategory, Color } from '@/lib/types';
 import { GameBoard } from '@/components/game/GameBoard';
 import { GameHeader } from '@/components/game/GameHeader';
-import { LeaderboardModal } from '@/components/modals/LeaderboardModal';
-import { SettingsModal } from '@/components/modals/SettingsModal';
+import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 
 const COLORS: Color[] = ['yellow', 'blue', 'green', 'purple'];
 
@@ -44,8 +44,6 @@ function CustomPlayContent() {
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showStats, setShowStats] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     const ids = idsParam.split(',').filter(Boolean);
@@ -63,6 +61,17 @@ function CustomPlayContent() {
           setError('Could not load all 4 categories.');
         } else {
           setPuzzle(buildPuzzle(cats));
+          fetch('/api/user-categories/play', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids }),
+          })
+            .then(async (r) => {
+              const json = await r.json().catch(() => ({}));
+              if (!r.ok) console.error('[play count] failed:', r.status, json);
+              else console.log('[play count] updated:', json);
+            })
+            .catch((err) => console.error('[play count] network error:', err));
         }
         setLoading(false);
       })
@@ -72,7 +81,10 @@ function CustomPlayContent() {
       });
   }, [idsParam]);
 
-  const handleWin = useCallback(() => recordCompletion('custom'), []);
+  const handleWin = useCallback(() => {
+    incrementCustomWins();
+    recordCompletion('custom');
+  }, []);
 
   if (loading) {
     return (
@@ -84,33 +96,37 @@ function CustomPlayContent() {
 
   if (error || !puzzle) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
-        <GameHeader />
-        <p style={{ color: 'var(--text)' }}>{error ?? 'Something went wrong.'}</p>
-        <button
-          onClick={() => router.push('/custom')}
-          className="px-6 py-2 rounded-full font-bold text-sm"
-          style={{ backgroundColor: 'var(--button-bg)', color: 'var(--button-text)' }}
+      <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <Navbar />
+        <div
+          className="flex flex-col items-center justify-center gap-4"
+          style={{ paddingTop: NAVBAR_HEIGHT, minHeight: '100vh' }}
         >
-          Back to Browse
-        </button>
+          <p style={{ color: 'var(--text)' }}>{error ?? 'Something went wrong.'}</p>
+          <button
+            onClick={() => router.push('/custom')}
+            className="px-6 py-2 rounded-full font-bold text-sm"
+            style={{ backgroundColor: 'var(--button-bg)', color: 'var(--button-text)' }}
+          >
+            Back to Browse
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-4" style={{ backgroundColor: 'var(--bg)' }}>
-      <GameHeader />
-      <GameBoard
-        puzzle={puzzle}
-        onOpenStats={() => setShowStats(true)}
-        onOpenSettings={() => setShowSettings(true)}
-        noStats
-        onWin={handleWin}
-        onBack={() => router.push('/custom')}
-      />
-      {showStats && <LeaderboardModal onClose={() => setShowStats(false)} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <Navbar />
+      <div style={{ paddingTop: NAVBAR_HEIGHT }}>
+        <GameHeader />
+        <GameBoard
+          puzzle={puzzle}
+          noStats
+          onWin={handleWin}
+          onBack={() => router.push('/custom')}
+        />
+      </div>
     </div>
   );
 }

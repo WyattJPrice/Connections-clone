@@ -15,6 +15,7 @@ export interface UserCategory {
   name: string;
   words: string[];
   createdAt: string;
+  playCount: number;
 }
 
 export interface UserProfile {
@@ -40,6 +41,7 @@ export interface Stats {
   purpleFirst: number;
   lastPlayedDate: string | null;
   lastWonDate: string | null;
+  customWins: number;
 }
 
 export type GameStatus = 'idle' | 'playing' | 'won' | 'lost';
