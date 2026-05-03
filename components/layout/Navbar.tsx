@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { signOut } from '@/lib/auth';
 import { useKey } from '@/lib/useKey';
 import { useModals } from '@/components/modals/ModalsProvider';
@@ -25,8 +25,8 @@ export function Navbar() {
   useKey('Escape', () => { setMenuOpen(false); setAccountOpen(false); }, menuOpen || accountOpen);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    getSupabase().auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_e, s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
 

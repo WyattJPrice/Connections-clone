@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { getFirstName } from '@/lib/auth';
 import { containsProfanity } from '@/lib/profanity';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
@@ -46,8 +46,8 @@ export default function CreatePage() {
   );
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    getSupabase().auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_e, s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
 
@@ -57,7 +57,7 @@ export default function CreatePage() {
   useEffect(() => {
     if (!user) return;
     setLoadingCats(true);
-    supabase.auth.getSession().then(async ({ data }) => {
+    getSupabase().auth.getSession().then(async ({ data }) => {
       const token = data.session?.access_token;
       if (!token) return;
       const r = await fetch(`/api/user-categories?myId=${user.id}`, {
@@ -91,7 +91,7 @@ export default function CreatePage() {
     }
     setSaving(true);
     try {
-      const { data: { session: s } } = await supabase.auth.getSession();
+      const { data: { session: s } } = await getSupabase().auth.getSession();
       const token = s?.access_token;
       const r = await fetch('/api/user-categories', {
         method: 'POST',
@@ -114,7 +114,7 @@ export default function CreatePage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this category?')) return;
-    const { data: { session: s } } = await supabase.auth.getSession();
+    const { data: { session: s } } = await getSupabase().auth.getSession();
     const token = s?.access_token;
     await fetch(`/api/user-categories/${id}`, {
       method: 'DELETE',
@@ -136,7 +136,7 @@ export default function CreatePage() {
     }
     setEditSaving(true);
     try {
-      const { data: { session: s } } = await supabase.auth.getSession();
+      const { data: { session: s } } = await getSupabase().auth.getSession();
       const token = s?.access_token;
       const r = await fetch(`/api/user-categories/${editState.id}`, {
         method: 'PUT',
