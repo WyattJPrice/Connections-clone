@@ -1,9 +1,9 @@
 'use client';
 
-import { supabase } from './supabase';
+import { getSupabase } from './supabase';
 
 export async function signInWithGoogle() {
-  const { error } = await supabase.auth.signInWithOAuth({
+  const { error } = await getSupabase().auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: `${window.location.origin}/auth/callback`,
@@ -13,11 +13,11 @@ export async function signInWithGoogle() {
 }
 
 export async function signOut() {
-  await supabase.auth.signOut();
+  await getSupabase().auth.signOut();
 }
 
 export async function getSession() {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await getSupabase().auth.getSession();
   return data.session;
 }
 

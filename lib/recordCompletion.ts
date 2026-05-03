@@ -1,6 +1,6 @@
 'use client';
 
-import { supabase } from './supabase';
+import { getSupabase } from './supabase';
 import { getFirstName } from './auth';
 
 export async function recordCompletion(
@@ -8,7 +8,7 @@ export async function recordCompletion(
   puzzleDate?: string
 ) {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSupabase().auth.getSession();
     if (!session) return;
     const fullName = session.user.user_metadata?.full_name as string | undefined;
     const userName = getFirstName(fullName) || session.user.email?.split('@')[0] || 'Player';
