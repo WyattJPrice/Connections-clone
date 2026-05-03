@@ -3,6 +3,7 @@ import localFont from 'next/font/local';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { ModalsProvider } from '@/components/modals/ModalsProvider';
+import { Analytics } from '@vercel/analytics/next';
 
 const karnak = localFont({
   src: '../public/fonts/karnakcondensed-normal-700.ttf',
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <ModalsProvider>{children}</ModalsProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
