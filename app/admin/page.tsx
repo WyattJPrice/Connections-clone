@@ -122,6 +122,13 @@ export default function AdminCalendarPage() {
           </h1>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => router.push('/admin/user-categories')}
+              className="text-sm font-bold px-4 py-2 rounded-full border transition-opacity hover:opacity-70"
+              style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)' }}
+            >
+              Community
+            </button>
+            <button
               onClick={() => router.push('/admin/stats')}
               className="text-sm font-bold px-4 py-2 rounded-full border transition-opacity hover:opacity-70"
               style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)' }}
