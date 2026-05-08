@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase';
-import { signOut } from '@/lib/auth';
+import { signOut, getDisplayName, hasDisplayNameSet, updateDisplayName } from '@/lib/auth';
 import { useKey } from '@/lib/useKey';
 import { useModals } from '@/components/modals/ModalsProvider';
 import { useTheme } from '@/components/ThemeProvider';
@@ -19,10 +19,24 @@ export function Navbar() {
   const [session, setSession] = useState<Session | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameSaving, setNameSaving] = useState(false);
+  const promptedFirstTime = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
-  useKey('Escape', () => { setMenuOpen(false); setAccountOpen(false); }, menuOpen || accountOpen);
+  useKey(
+    'Escape',
+    () => {
+      if (editingName) { setEditingName(false); setNameError(null); }
+      setMenuOpen(false);
+      setAccountOpen(false);
+    },
+    menuOpen || accountOpen || editingName
+  );
 
   useEffect(() => {
     getSupabase().auth.getSession().then(({ data }) => setSession(data.session));
@@ -42,11 +56,62 @@ export function Navbar() {
   const user = session?.user;
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
   const fullName = user?.user_metadata?.full_name as string | undefined;
+  const displayName = getDisplayName(user);
+
+  // First-time sign-in: open the avatar dropdown into edit mode so the user
+  // can confirm or change the name pulled from their Google profile.
+  useEffect(() => {
+    if (!user) {
+      promptedFirstTime.current = false;
+      return;
+    }
+    if (promptedFirstTime.current) return;
+    if (!hasDisplayNameSet(user)) {
+      promptedFirstTime.current = true;
+      setAccountOpen(true);
+      setNameDraft(displayName);
+      setEditingName(true);
+    }
+  }, [user, displayName]);
+
+  // Focus the name input whenever edit mode opens
+  useEffect(() => {
+    if (editingName) {
+      requestAnimationFrame(() => nameInputRef.current?.select());
+    }
+  }, [editingName]);
 
   async function handleSignOut() {
     await signOut();
     setAccountOpen(false);
     router.refresh();
+  }
+
+  function startEditName() {
+    setNameDraft(displayName);
+    setNameError(null);
+    setEditingName(true);
+  }
+
+  function cancelEditName() {
+    setEditingName(false);
+    setNameError(null);
+  }
+
+  async function saveName() {
+    if (nameSaving) return;
+    setNameSaving(true);
+    setNameError(null);
+    const result = await updateDisplayName(nameDraft);
+    setNameSaving(false);
+    if (!result.ok) {
+      setNameError(result.error ?? 'Failed to save.');
+      return;
+    }
+    // Refresh session so the new metadata is reflected
+    const { data } = await getSupabase().auth.getSession();
+    setSession(data.session);
+    setEditingName(false);
   }
 
   function navigateAndClose(path: string) {
@@ -91,7 +156,7 @@ export function Navbar() {
 
           {menuOpen && (
             <div
-              className="absolute left-0 top-12 z-50 rounded-xl shadow-lg border py-2 min-w-[220px]"
+              className="absolute left-0 top-12 z-50 rounded-xl shadow-lg border py-2 min-w-55"
               style={{ backgroundColor: 'var(--modal-bg)', borderColor: 'var(--border)' }}
             >
               <MenuItem onClick={() => navigateAndClose('/play')}>
@@ -197,13 +262,78 @@ export function Navbar() {
 
           {accountOpen && user && (
             <div
-              className="absolute right-0 top-11 z-50 rounded-xl shadow-lg border py-2 min-w-[180px]"
+              className="absolute right-0 top-11 z-50 rounded-xl shadow-lg border py-2 min-w-55"
               style={{ backgroundColor: 'var(--modal-bg)', borderColor: 'var(--border)' }}
             >
               <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
-                <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                  {fullName?.split(' ')[0] ?? 'Account'}
-                </p>
+                {editingName ? (
+                  <div className="flex flex-col gap-2">
+                    {!hasDisplayNameSet(user) && (
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        What should we call you?
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={nameInputRef}
+                        type="text"
+                        value={nameDraft}
+                        maxLength={30}
+                        onChange={(e) => setNameDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); saveName(); }
+                          else if (e.key === 'Escape') { e.preventDefault(); cancelEditName(); }
+                        }}
+                        disabled={nameSaving}
+                        className="flex-1 min-w-0 px-2 py-1 rounded-md border text-sm outline-none"
+                        style={{
+                          backgroundColor: 'var(--bg)',
+                          borderColor: 'var(--border)',
+                          color: 'var(--text)',
+                        }}
+                        placeholder="Display name"
+                      />
+                      <button
+                        onClick={saveName}
+                        disabled={nameSaving || !nameDraft.trim()}
+                        className="btn-hover px-2.5 py-1 rounded-md font-bold text-xs disabled:opacity-40"
+                        style={{ backgroundColor: 'var(--button-bg)', color: 'var(--button-text)' }}
+                      >
+                        {nameSaving ? '…' : 'Save'}
+                      </button>
+                    </div>
+                    {nameError && (
+                      <p className="text-xs" style={{ color: '#d23b3b' }}>{nameError}</p>
+                    )}
+                    {hasDisplayNameSet(user) && !nameError && (
+                      <button
+                        onClick={cancelEditName}
+                        className="self-start text-xs underline"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
+                      {displayName || 'Account'}
+                    </p>
+                    <button
+                      onClick={startEditName}
+                      className="shrink-0 p-1 rounded-md hover:bg-black/5 transition-colors"
+                      style={{ color: 'var(--text-muted)' }}
+                      aria-label="Edit display name"
+                    >
+                      {/* ─────── ICON: EDIT NAME ─────── */}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M5 3c-1.11 0-2 .89-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7H5V5h7V3zm12.78 1a.7.7 0 0 0-.48.2l-1.22 1.21l2.5 2.5L19.8 6.7c.26-.26.26-.7 0-.95L18.25 4.2c-.13-.13-.3-.2-.47-.2m-2.41 2.12L8 13.5V16h2.5l7.37-7.38z"/>
+                      </svg>
+                      {/* ─────── END EDIT ICON ─────── */}
+                    </button>
+                  </div>
+                )}
               </div>
               <MenuItem onClick={() => { setAccountOpen(false); router.push('/create'); }}>
                 <span className="w-5" />

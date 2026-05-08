@@ -1,7 +1,7 @@
 'use client';
 
 import { getSupabase } from './supabase';
-import { getFirstName } from './auth';
+import { getDisplayName } from './auth';
 
 export async function recordCompletion(
   completionType: 'daily' | 'custom',
@@ -10,8 +10,7 @@ export async function recordCompletion(
   try {
     const { data: { session } } = await getSupabase().auth.getSession();
     if (!session) return;
-    const fullName = session.user.user_metadata?.full_name as string | undefined;
-    const userName = getFirstName(fullName) || session.user.email?.split('@')[0] || 'Player';
+    const userName = getDisplayName(session.user);
 
     await fetch('/api/completions', {
       method: 'POST',

@@ -26,6 +26,12 @@ function PlayContent() {
     const todayDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const targetDate = dateParam ?? todayDate;
 
+    if (dateParam && targetDate > todayDate) {
+      setError('That puzzle isn’t available yet — try a past date.');
+      setLoading(false);
+      return;
+    }
+
     fetch(`/api/puzzle/today?date=${targetDate}`)
       .then((r) => r.json())
       .then((data) => {

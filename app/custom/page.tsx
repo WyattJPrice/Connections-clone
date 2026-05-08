@@ -71,17 +71,38 @@ export default function CustomPage() {
     return () => clearTimeout(id);
   }, [search, searchCategories]);
 
+  function findDuplicateWords(cats: UserCategory[]): string[] {
+    const counts = new Map<string, number>();
+    for (const cat of cats) {
+      const seenInThisCat = new Set<string>();
+      for (const word of cat.words) {
+        const w = word.trim().toUpperCase();
+        if (seenInThisCat.has(w)) continue;
+        seenInThisCat.add(w);
+        counts.set(w, (counts.get(w) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries()).filter(([, n]) => n > 1).map(([w]) => w);
+  }
+
   async function handleShuffle() {
     setSearchLoading(true);
     try {
-      const r = await fetch('/api/user-categories?random=4');
-      const d = await r.json();
-      const cats: UserCategory[] = d.categories ?? [];
-      if (cats.length < 4) {
-        setToast('Not enough community categories yet!');
-        return;
+      // Try up to 3 times to find a 4-pack with no shared words
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const r = await fetch('/api/user-categories?random=4');
+        const d = await r.json();
+        const cats: UserCategory[] = d.categories ?? [];
+        if (cats.length < 4) {
+          setToast('Not enough community categories yet!');
+          return;
+        }
+        if (findDuplicateWords(cats).length === 0) {
+          router.push(`/play/custom?categories=${cats.map((c) => c.id).join(',')}`);
+          return;
+        }
       }
-      router.push(`/play/custom?categories=${cats.map((c) => c.id).join(',')}`);
+      setToast('Couldn’t find 4 categories without shared words. Try again.');
     } catch {
       setToast('Failed to load categories.');
     } finally {
@@ -105,6 +126,16 @@ export default function CustomPage() {
 
   function handlePlay() {
     if (selected.size !== 4) return;
+    const selectedCats = results.filter((c) => selected.has(c.id));
+    if (selectedCats.length === 4) {
+      const dupes = findDuplicateWords(selectedCats);
+      if (dupes.length > 0) {
+        const list = dupes.slice(0, 3).join(', ');
+        const more = dupes.length > 3 ? ` +${dupes.length - 3} more` : '';
+        setToast(`Selected categories share word${dupes.length > 1 ? 's' : ''}: ${list}${more}. Pick a different category.`);
+        return;
+      }
+    }
     router.push(`/play/custom?categories=${Array.from(selected).join(',')}`);
   }
 

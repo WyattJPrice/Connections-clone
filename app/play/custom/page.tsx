@@ -59,20 +59,39 @@ function CustomPlayContent() {
         const cats: UserCategory[] = data.categories ?? [];
         if (cats.length !== 4) {
           setError('Could not load all 4 categories.');
-        } else {
-          setPuzzle(buildPuzzle(cats));
-          fetch('/api/user-categories/play', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids }),
-          })
-            .then(async (r) => {
-              const json = await r.json().catch(() => ({}));
-              if (!r.ok) console.error('[play count] failed:', r.status, json);
-              else console.log('[play count] updated:', json);
-            })
-            .catch((err) => console.error('[play count] network error:', err));
+          setLoading(false);
+          return;
         }
+        const counts = new Map<string, number>();
+        for (const cat of cats) {
+          const seen = new Set<string>();
+          for (const word of cat.words) {
+            const w = word.trim().toUpperCase();
+            if (seen.has(w)) continue;
+            seen.add(w);
+            counts.set(w, (counts.get(w) ?? 0) + 1);
+          }
+        }
+        const dupes = Array.from(counts.entries()).filter(([, n]) => n > 1).map(([w]) => w);
+        if (dupes.length > 0) {
+          const list = dupes.slice(0, 3).join(', ');
+          const more = dupes.length > 3 ? ` +${dupes.length - 3} more` : '';
+          setError(`These categories share word${dupes.length > 1 ? 's' : ''}: ${list}${more}. Pick a different mix.`);
+          setLoading(false);
+          return;
+        }
+        setPuzzle(buildPuzzle(cats));
+        fetch('/api/user-categories/play', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids }),
+        })
+          .then(async (r) => {
+            const json = await r.json().catch(() => ({}));
+            if (!r.ok) console.error('[play count] failed:', r.status, json);
+            else console.log('[play count] updated:', json);
+          })
+          .catch((err) => console.error('[play count] network error:', err));
         setLoading(false);
       })
       .catch(() => {

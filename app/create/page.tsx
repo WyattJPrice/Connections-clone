@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
-import { getFirstName } from '@/lib/auth';
+import { getDisplayName } from '@/lib/auth';
 import { containsProfanity } from '@/lib/profanity';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
@@ -52,7 +52,7 @@ export default function CreatePage() {
   }, []);
 
   const user = session?.user;
-  const firstName = getFirstName(user?.user_metadata?.full_name);
+  const firstName = getDisplayName(user);
 
   useEffect(() => {
     if (!user) return;
