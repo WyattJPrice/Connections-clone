@@ -38,6 +38,11 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
 
+  const normalized = words.map((w: string) => w.trim().toUpperCase());
+  if (new Set(normalized).size < normalized.length) {
+    return NextResponse.json({ error: 'All 4 words must be unique.' }, { status: 400 });
+  }
+
   const allText = [name, ...words].join(' ');
   if (containsProfanity(allText)) {
     return NextResponse.json({ error: 'Inappropriate content detected' }, { status: 422 });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { waitUntil } from '@vercel/functions';
 import { containsProfanity } from '@/lib/profanity';
 import { notifyNewSubmission } from '@/lib/telegram';
 
@@ -122,6 +123,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
 
+  const normalized = words.map((w: string) => w.trim().toUpperCase());
+  if (new Set(normalized).size < normalized.length) {
+    return NextResponse.json({ error: 'All 4 words must be unique.' }, { status: 400 });
+  }
+
   const allText = [name, ...words].join(' ');
   if (containsProfanity(allText)) {
     return NextResponse.json({ error: 'Inappropriate content detected' }, { status: 422 });
@@ -141,13 +147,13 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Fire-and-forget Telegram notification (no-op if env not configured).
-  notifyNewSubmission({
+  // Run Telegram notification after response is sent so Vercel doesn't kill it early.
+  waitUntil(notifyNewSubmission({
     id: data.id,
     name: data.name,
     words: data.words,
     creatorName: data.creator_name,
-  });
+  }));
 
   return NextResponse.json({
     category: {

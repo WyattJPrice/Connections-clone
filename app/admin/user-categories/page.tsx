@@ -264,10 +264,13 @@ export default function AdminUserCategoriesPage() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+    <>
       <Navbar />
-      <div className="flex-1 px-4 py-6" style={{ paddingTop: NAVBAR_HEIGHT + 24 }}>
-        <div className="max-w-4xl mx-auto">
+      <div
+        className="themed-scrollbar"
+        style={{ position: 'fixed', top: NAVBAR_HEIGHT, left: 0, right: 0, bottom: 0, overflowY: 'auto', backgroundColor: 'var(--bg)' }}
+      >
+        <div className="max-w-4xl mx-auto px-4 py-6">
 
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -319,7 +322,7 @@ export default function AdminUserCategoriesPage() {
                 {notifEnabled ? 'Enabled' : 'Enable'}
               </button>
             </div>
-            <div className="mt-3 pt-3 border-t flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: 'var(--border)' }}>
+{/*             <div className="mt-3 pt-3 border-t flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: 'var(--border)' }}>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-sm" style={{ color: 'var(--text)' }}>
                   Telegram bot
@@ -336,7 +339,7 @@ export default function AdminUserCategoriesPage() {
               >
                 {tgSetupBusy ? 'Working…' : 'Register webhook'}
               </button>
-            </div>
+            </div> */}
           </div>
 
           {/* Search / filter bar */}
@@ -625,6 +628,6 @@ export default function AdminUserCategoriesPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

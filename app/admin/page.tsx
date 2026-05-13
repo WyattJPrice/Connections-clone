@@ -111,10 +111,13 @@ export default function AdminCalendarPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+    <>
       <Navbar />
-      <div className="flex-1 px-4 py-6" style={{ paddingTop: NAVBAR_HEIGHT + 24 }}>
-      <div className="max-w-lg mx-auto">
+      <div
+        className="themed-scrollbar"
+        style={{ position: 'fixed', top: NAVBAR_HEIGHT, left: 0, right: 0, bottom: 0, overflowY: 'auto', backgroundColor: 'var(--bg)' }}
+      >
+      <div className="max-w-lg mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-black" style={{ color: 'var(--text)' }}>
@@ -214,6 +217,6 @@ export default function AdminCalendarPage() {
         </div>
       </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -85,6 +85,11 @@ export default function CreatePage() {
       setToast('Fill in all fields.');
       return;
     }
+    const normalizedWords = newWords.map((w) => w.trim().toUpperCase());
+    if (new Set(normalizedWords).size < normalizedWords.length) {
+      setToast('All 4 words must be unique.');
+      return;
+    }
     if ([newName, ...newWords].some((t) => t.trim() && containsProfanity(t))) {
       setToast('Inappropriate language detected');
       return;
@@ -130,6 +135,11 @@ export default function CreatePage() {
 
   async function handleEditSave() {
     if (!editState) return;
+    const normalizedEditWords = editState.words.map((w) => w.trim().toUpperCase());
+    if (new Set(normalizedEditWords).size < normalizedEditWords.length) {
+      setToast('All 4 words must be unique.');
+      return;
+    }
     if ([editState.name, ...editState.words].some((t) => t.trim() && containsProfanity(t))) {
       setToast('Inappropriate language detected');
       return;
@@ -185,10 +195,13 @@ export default function CreatePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+    <>
       <Navbar />
-      <div className="flex-1 px-4 py-6" style={{ paddingTop: NAVBAR_HEIGHT + 24 }}>
-      <div className="max-w-lg mx-auto">
+      <div
+        className="themed-scrollbar"
+        style={{ position: 'fixed', top: NAVBAR_HEIGHT, left: 0, right: 0, bottom: 0, overflowY: 'auto', backgroundColor: 'var(--bg)' }}
+      >
+      <div className="max-w-lg mx-auto px-4 py-6">
         {/* Greeting */}
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Hi, {firstName}!</p>
 
@@ -338,6 +351,6 @@ export default function CreatePage() {
       </div>
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} duration={2500} />}
-    </div>
+    </>
   );
 }

@@ -281,11 +281,13 @@ export default function CustomPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+    <>
       <Navbar />
-
-      <div className="flex-1 px-4 py-6" style={{ paddingTop: NAVBAR_HEIGHT + 24 }}>
-        <div className="max-w-lg mx-auto flex flex-col gap-8">
+      <div
+        className="themed-scrollbar"
+        style={{ position: 'fixed', top: NAVBAR_HEIGHT, left: 0, right: 0, bottom: 0, overflowY: 'auto', backgroundColor: 'var(--bg)' }}
+      >
+        <div className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-8">
 
           {/* ── Section 1: Previous Daily Puzzles ── */}
           <section>
@@ -565,7 +567,7 @@ export default function CustomPage() {
                   </div>
 
                   {/* Modal Content */}
-                  <div className="overflow-y-auto flex-1 px-6 py-4">
+                  <div className="themed-scrollbar overflow-y-auto flex-1 px-6 py-4">
                     {modalLoading ? (
                       <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>Loading…</p>
                     ) : modalCategories.length === 0 ? (
@@ -725,7 +727,7 @@ export default function CustomPage() {
       </div>
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
-    </div>
+    </>
   );
 }
 

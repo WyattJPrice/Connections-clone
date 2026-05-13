@@ -77,7 +77,7 @@ export function CommunityBrowserModal({ onSelect, onClose }: Props) {
         </div>
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto px-5 py-3 flex flex-col gap-2">
+        <div className="themed-scrollbar flex-1 overflow-y-auto px-5 py-3 flex flex-col gap-2">
           {loading && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</p>}
           {!loading && results.length === 0 && (
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
