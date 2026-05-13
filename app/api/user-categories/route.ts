@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { containsProfanity } from '@/lib/profanity';
+import { notifyNewSubmission } from '@/lib/telegram';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,6 +124,14 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Fire-and-forget Telegram notification (no-op if env not configured).
+  notifyNewSubmission({
+    id: data.id,
+    name: data.name,
+    words: data.words,
+    creatorName: data.creator_name,
+  });
 
   return NextResponse.json({
     category: {
