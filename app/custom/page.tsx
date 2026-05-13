@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   format, startOfMonth, endOfMonth,
@@ -506,7 +507,7 @@ export default function CustomPage() {
             )}
 
             {/* Modal - Browse All Categories */}
-            {modalOpen && (
+            {modalOpen && createPortal(
               <div
                 className="fixed inset-0 z-50 flex items-center justify-center p-4"
                 style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
@@ -721,7 +722,7 @@ export default function CustomPage() {
                   )}
                 </div>
               </div>
-            )}
+            , document.body)}
           </section>
         </div>
       </div>
