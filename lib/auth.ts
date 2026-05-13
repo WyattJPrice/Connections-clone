@@ -58,7 +58,32 @@ export async function updateDisplayName(name: string): Promise<UpdateDisplayName
   if (trimmed.length > 30) return { ok: false, error: 'Name is too long (max 30 characters).' };
   if (containsProfanity(trimmed)) return { ok: false, error: 'Inappropriate language detected' };
 
-  const { error } = await getSupabase().auth.updateUser({ data: { display_name: trimmed } });
+  const supabase = getSupabase();
+  const { error } = await supabase.auth.updateUser({ data: { display_name: trimmed } });
   if (error) return { ok: false, error: error.message };
+
+  // Backfill the new name into denormalized snapshots (user_categories.creator_name,
+  // puzzle_completions.user_name) so older rows reflect the rename.
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (token) {
+      const res = await fetch('/api/profile/display-name', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return { ok: false, error: body?.error ?? 'Failed to update existing records.' };
+      }
+    }
+  } catch {
+    return { ok: false, error: 'Failed to update existing records.' };
+  }
+
   return { ok: true };
 }

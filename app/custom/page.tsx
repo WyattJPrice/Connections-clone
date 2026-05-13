@@ -29,12 +29,20 @@ export default function CustomPage() {
   // Community state
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<UserCategory[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSort, setModalSort] = useState<'all' | 'completed' | 'unsolved'>('all');
+  const [modalCategories, setModalCategories] = useState<UserCategory[]>([]);
+  const [modalPage, setModalPage] = useState(0);
+  const [modalTotal, setModalTotal] = useState(0);
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const MODAL_PAGE_SIZE = 100;
+  const modalPageCount = Math.max(1, Math.ceil(modalTotal / MODAL_PAGE_SIZE));
 
   useKey('Escape', () => setModalOpen(false), modalOpen);
 
@@ -59,8 +67,10 @@ export default function CustomPage() {
       const r = await fetch(url, { cache: 'no-store' });
       const d = await r.json();
       setResults(d.categories ?? []);
+      setTotalCount(d.total ?? (d.categories?.length ?? 0));
     } catch {
       setResults([]);
+      setTotalCount(0);
     } finally {
       setSearchLoading(false);
     }
@@ -70,6 +80,38 @@ export default function CustomPage() {
     const id = setTimeout(() => searchCategories(search), 350);
     return () => clearTimeout(id);
   }, [search, searchCategories]);
+
+  // Modal: fetch its own paginated slice. Resets to page 0 when search changes.
+  useEffect(() => {
+    if (!modalOpen) return;
+    setModalLoading(true);
+    const params = new URLSearchParams({
+      page: String(modalPage),
+      pageSize: String(MODAL_PAGE_SIZE),
+    });
+    if (search.trim()) params.set('creatorName', search.trim());
+    fetch(`/api/user-categories?${params.toString()}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        setModalCategories(d.categories ?? []);
+        setModalTotal(d.total ?? 0);
+      })
+      .catch(() => {
+        setModalCategories([]);
+        setModalTotal(0);
+      })
+      .finally(() => setModalLoading(false));
+  }, [modalOpen, modalPage, search]);
+
+  // Reset to page 1 whenever the search term changes while modal is open.
+  useEffect(() => {
+    if (modalOpen) setModalPage(0);
+  }, [search, modalOpen]);
+
+  function openModal() {
+    setModalPage(0);
+    setModalOpen(true);
+  }
 
   function findDuplicateWords(cats: UserCategory[]): string[] {
     const counts = new Map<string, number>();
@@ -88,17 +130,41 @@ export default function CustomPage() {
   async function handleShuffle() {
     setSearchLoading(true);
     try {
-      // Try up to 3 times to find a 4-pack with no shared words
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const r = await fetch('/api/user-categories?random=4');
-        const d = await r.json();
-        const cats: UserCategory[] = d.categories ?? [];
-        if (cats.length < 4) {
-          setToast('Not enough community categories yet!');
-          return;
+      const r = await fetch('/api/user-categories?page=0&pageSize=100', { cache: 'no-store' });
+      const d = await r.json();
+      const pool: UserCategory[] = d.categories ?? [];
+      if (pool.length < 4) {
+        setToast('Not enough community categories yet!');
+        return;
+      }
+
+      const shuffle = <T,>(arr: T[]): T[] => {
+        const copy = [...arr];
+        for (let i = copy.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
         }
-        if (findDuplicateWords(cats).length === 0) {
-          router.push(`/play/custom?categories=${cats.map((c) => c.id).join(',')}`);
+        return copy;
+      };
+
+      const unfinished = pool.filter((c) => !completedIds.has(c.id));
+      const finished = pool.filter((c) => completedIds.has(c.id));
+
+      // Try a few orderings — unfinished first each time, finished as filler —
+      // and greedily pick 4 categories with no shared words.
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const ordered = [...shuffle(unfinished), ...shuffle(finished)];
+        const picked: UserCategory[] = [];
+        const usedWords = new Set<string>();
+        for (const cat of ordered) {
+          const words = cat.words.map((w) => w.trim().toUpperCase());
+          if (words.some((w) => usedWords.has(w))) continue;
+          picked.push(cat);
+          words.forEach((w) => usedWords.add(w));
+          if (picked.length === 4) break;
+        }
+        if (picked.length === 4) {
+          router.push(`/play/custom?categories=${picked.map((c) => c.id).join(',')}`);
           return;
         }
       }
@@ -410,13 +476,13 @@ export default function CustomPage() {
                     10,
                     results.filter((c) => !completedIds.has(c.id)).length
                   );
-                  return results.length > unsolvedShown ? (
+                  return totalCount > unsolvedShown ? (
                     <button
-                      onClick={() => setModalOpen(true)}
+                      onClick={openModal}
                       className="btn-hover w-full py-2.5 rounded-lg font-bold text-sm"
                       style={{ backgroundColor: 'var(--tile-bg)', color: 'var(--text)' }}
                     >
-                      View All {results.length} Categories ›
+                      View More ›
                     </button>
                   ) : null;
                 })()}
@@ -440,7 +506,7 @@ export default function CustomPage() {
                     <h3 className="font-black text-lg" style={{ color: 'var(--text)' }}>
                       All Categories
                       <span className="ml-2 text-sm font-normal" style={{ color: 'var(--text-muted)' }}>
-                        {results.length} total
+                        {modalTotal} total
                       </span>
                     </h3>
                     <button
@@ -486,8 +552,15 @@ export default function CustomPage() {
 
                   {/* Modal Content */}
                   <div className="overflow-y-auto flex-1 px-6 py-4">
-                    <div className="grid grid-cols-2 gap-2">
-                      {results
+                    {modalLoading ? (
+                      <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>Loading…</p>
+                    ) : modalCategories.length === 0 ? (
+                      <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                        No categories found.
+                      </p>
+                    ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {modalCategories
                         .filter((cat) => {
                           if (modalSort === 'completed') return completedIds.has(cat.id);
                           if (modalSort === 'unsolved') return !completedIds.has(cat.id);
@@ -565,7 +638,33 @@ export default function CustomPage() {
                           );
                         })}
                     </div>
+                    )}
                   </div>
+
+                  {/* Pagination */}
+                  {modalPageCount > 1 && (
+                    <div className="border-t px-6 py-3 flex items-center justify-center gap-3 shrink-0" style={{ borderColor: 'var(--border)' }}>
+                      <button
+                        onClick={() => setModalPage((p) => Math.max(0, p - 1))}
+                        disabled={modalPage === 0 || modalLoading}
+                        className="btn-hover-outline px-3 py-1.5 rounded-full font-bold text-sm border disabled:opacity-40"
+                        style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                      >
+                        ‹ Prev
+                      </button>
+                      <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--text)' }}>
+                        Page {modalPage + 1} of {modalPageCount}
+                      </span>
+                      <button
+                        onClick={() => setModalPage((p) => Math.min(modalPageCount - 1, p + 1))}
+                        disabled={modalPage >= modalPageCount - 1 || modalLoading}
+                        className="btn-hover-outline px-3 py-1.5 rounded-full font-bold text-sm border disabled:opacity-40"
+                        style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                      >
+                        Next ›
+                      </button>
+                    </div>
+                  )}
 
                   {/* Modal Footer */}
                   {selected.size > 0 && (

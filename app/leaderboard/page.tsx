@@ -7,11 +7,13 @@ import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
+type Tab = 'total' | 'daily' | 'custom' | 'created';
+
 export default function LeaderboardPage() {
   const router = useRouter();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'total' | 'daily' | 'custom'>('total');
+  const [tab, setTab] = useState<Tab>('total');
 
   useEffect(() => {
     fetch('/api/leaderboard')
@@ -21,9 +23,11 @@ export default function LeaderboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const sorted = [...entries].sort((a, b) => {
+  const visible = tab === 'created' ? entries.filter((e) => e.createdCount > 0) : entries;
+  const sorted = [...visible].sort((a, b) => {
     if (tab === 'daily') return b.dailyCount - a.dailyCount;
     if (tab === 'custom') return b.customCount - a.customCount;
+    if (tab === 'created') return b.createdCount - a.createdCount;
     return b.totalCount - a.totalCount;
   });
 
@@ -47,18 +51,18 @@ export default function LeaderboardPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 p-1 rounded-full mb-6" style={{ backgroundColor: 'var(--tile-bg)' }}>
-          {(['total', 'daily', 'custom'] as const).map((t) => (
+          {(['total', 'daily', 'custom', 'created'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`${tab === t ? 'btn-hover' : 'btn-hover-ghost'} flex-1 py-2 rounded-full font-bold text-sm capitalize`}
+              className={`${tab === t ? 'btn-hover' : 'btn-hover-ghost'} flex-1 py-2 rounded-full font-bold text-xs capitalize`}
               style={
                 tab === t
                   ? { backgroundColor: 'var(--button-bg)', color: 'var(--button-text)' }
                   : { backgroundColor: 'transparent', color: 'var(--text)', opacity: 0.6 }
               }
             >
-              {t === 'total' ? 'All' : t === 'daily' ? 'Daily' : 'Custom'}
+              {t === 'total' ? 'All' : t === 'daily' ? 'Daily' : t === 'custom' ? 'Custom' : 'Created'}
             </button>
           ))}
         </div>
@@ -68,8 +72,39 @@ export default function LeaderboardPage() {
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</p>
         ) : sorted.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            No completions yet — be the first to solve a puzzle!
+            {tab === 'created'
+              ? 'No categories created yet — make the first one!'
+              : 'No completions yet — be the first to solve a puzzle!'}
           </p>
+        ) : tab === 'created' ? (
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-[2rem_1fr_auto] gap-3 px-4 pb-1">
+              <div />
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Player</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-right" style={{ color: '#c2410c' }}>Made</span>
+            </div>
+
+            {sorted.map((entry, i) => (
+              <div
+                key={`${entry.userName}-${i}`}
+                className="grid grid-cols-[2rem_1fr_auto] items-center gap-3 px-4 py-3 rounded-xl"
+                style={{
+                  backgroundColor: i < 3 ? 'var(--tile-bg)' : 'transparent',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <span className="text-base font-black" style={{ color: 'var(--text)' }}>
+                  {MEDAL[i] ?? <span className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>}
+                </span>
+                <span className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
+                  {entry.userName}
+                </span>
+                <span className="font-black text-sm tabular-nums" style={{ color: '#c2410c' }}>
+                  {entry.createdCount}
+                </span>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="flex flex-col gap-2">
             {/* Header row */}

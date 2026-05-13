@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
 
   let query = db
     .from('user_categories')
-    .select('id, creator_id, creator_name, name, words, created_at, play_count')
+    .select('id, creator_id, creator_name, name, words, created_at, play_count', { count: 'exact' })
     .order('created_at', { ascending: false });
 
   if (creatorName) {
@@ -69,20 +69,35 @@ export async function GET(req: NextRequest) {
     query = query.eq('creator_id', myId);
   }
 
-  const { data, error } = await query.limit(random ? parseInt(random) * 10 : 100);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  let result = data ?? [];
-
   if (random) {
-    const count = parseInt(random);
-    const shuffled = [...result].sort(() => Math.random() - 0.5);
-    result = shuffled.slice(0, count);
+    const r = Math.max(1, parseInt(random));
+    const { data, error } = await query.limit(r * 10);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    const shuffled = [...(data ?? [])].sort(() => Math.random() - 0.5).slice(0, r);
+    return NextResponse.json({
+      categories: shuffled.map((c) => ({
+        id: c.id,
+        creatorId: c.creator_id,
+        creatorName: c.creator_name,
+        name: c.name,
+        words: c.words,
+        createdAt: c.created_at,
+        playCount: c.play_count ?? 0,
+      })),
+      total: shuffled.length,
+    });
   }
 
+  const page = Math.max(0, parseInt(searchParams.get('page') ?? '0'));
+  const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') ?? '100')));
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await query.range(from, to);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
   return NextResponse.json({
-    categories: result.map((c) => ({
+    categories: (data ?? []).map((c) => ({
       id: c.id,
       creatorId: c.creator_id,
       creatorName: c.creator_name,
@@ -91,6 +106,7 @@ export async function GET(req: NextRequest) {
       createdAt: c.created_at,
       playCount: c.play_count ?? 0,
     })),
+    total: count ?? 0,
   });
 }
 

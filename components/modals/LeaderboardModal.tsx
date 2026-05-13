@@ -6,6 +6,8 @@ import { useKey } from '@/lib/useKey';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
+type Tab = 'total' | 'daily' | 'custom' | 'created';
+
 interface LeaderboardModalProps {
   onClose: () => void;
 }
@@ -13,7 +15,7 @@ interface LeaderboardModalProps {
 export function LeaderboardModal({ onClose }: LeaderboardModalProps) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'total' | 'daily' | 'custom'>('total');
+  const [tab, setTab] = useState<Tab>('total');
   useKey('Escape', onClose);
 
   useEffect(() => {
@@ -24,9 +26,11 @@ export function LeaderboardModal({ onClose }: LeaderboardModalProps) {
       .finally(() => setLoading(false));
   }, []);
 
-  const sorted = [...entries].sort((a, b) => {
+  const visible = tab === 'created' ? entries.filter((e) => e.createdCount > 0) : entries;
+  const sorted = [...visible].sort((a, b) => {
     if (tab === 'daily') return b.dailyCount - a.dailyCount;
     if (tab === 'custom') return b.customCount - a.customCount;
+    if (tab === 'created') return b.createdCount - a.createdCount;
     return b.totalCount - a.totalCount;
   });
 
@@ -58,18 +62,18 @@ export function LeaderboardModal({ onClose }: LeaderboardModalProps) {
         {/* Tabs */}
         <div className="px-6 pt-4 shrink-0">
           <div className="flex gap-1 p-1 rounded-full" style={{ backgroundColor: 'var(--tile-bg)' }}>
-            {(['total', 'daily', 'custom'] as const).map((t) => (
+            {(['total', 'daily', 'custom', 'created'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`${tab === t ? 'btn-hover' : 'btn-hover-ghost'} flex-1 py-2 rounded-full font-bold text-sm`}
+                className={`${tab === t ? 'btn-hover' : 'btn-hover-ghost'} flex-1 py-2 rounded-full font-bold text-xs`}
                 style={
                   tab === t
                     ? { backgroundColor: 'var(--button-bg)', color: 'var(--button-text)' }
                     : { backgroundColor: 'transparent', color: 'var(--text)', opacity: 0.6 }
                 }
               >
-                {t === 'total' ? 'All' : t === 'daily' ? 'Daily' : 'Custom'}
+                {t === 'total' ? 'All' : t === 'daily' ? 'Daily' : t === 'custom' ? 'Custom' : 'Created'}
               </button>
             ))}
           </div>
@@ -81,11 +85,42 @@ export function LeaderboardModal({ onClose }: LeaderboardModalProps) {
             <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Loading…</p>
           ) : sorted.length === 0 ? (
             <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>
-              No completions yet — be the first!
+              {tab === 'created' ? 'No categories created yet — make the first one!' : 'No completions yet — be the first!'}
             </p>
+          ) : tab === 'created' ? (
+            <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-[2rem_1fr_auto] gap-3 px-4 pb-1">
+                <div />
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Player</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-right" style={{ color: '#c2410c' }}>Made</span>
+              </div>
+
+              {sorted.map((entry, i) => (
+                <div
+                  key={`${entry.userName}-${i}`}
+                  className="grid grid-cols-[2rem_1fr_auto] items-center gap-3 px-4 py-3 rounded-xl"
+                  style={{
+                    backgroundColor: i < 3 ? 'var(--tile-bg)' : 'transparent',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <span className="text-base font-black" style={{ color: 'var(--text)' }}>
+                    {i < 3
+                      ? MEDAL[i]
+                      : <span className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>
+                    }
+                  </span>
+                  <span className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
+                    {entry.userName}
+                  </span>
+                  <span className="font-black text-sm tabular-nums" style={{ color: '#c2410c' }}>
+                    {entry.createdCount}
+                  </span>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {/* Column headers */}
               <div className="grid grid-cols-[2rem_1fr_auto_auto_auto] gap-3 px-4 pb-1">
                 <div />
                 <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Player</span>
