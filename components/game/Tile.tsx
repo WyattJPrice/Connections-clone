@@ -20,8 +20,8 @@ export function Tile({ word, selected, solved, shaking, jumping, merging, jumpDe
       className={`
         tile-hover
         flex items-center justify-center w-full
-        h-36 sm:h-20
-        rounded-lg font-black text-xl tracking-wide uppercase select-none
+        h-21.25 sm:h-20
+        rounded-lg font-black text-sm sm:text-xl tracking-wide uppercase select-none
         ${shaking ? 'animate-shake' : ''}
         ${jumping ? 'animate-jump' : ''}
         ${merging ? 'animate-merge' : ''}

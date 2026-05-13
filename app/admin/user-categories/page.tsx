@@ -36,8 +36,48 @@ export default function AdminUserCategoriesPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const LIMIT = 50;
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else if (next.size < 4) {
+        next.add(id);
+      } else {
+        setError('You can only select 4 categories for a game.');
+        return prev;
+      }
+      setError(null);
+      return next;
+    });
+  }
+
+  function playSelected() {
+    if (selected.size !== 4) return;
+    const chosen = categories.filter((c) => selected.has(c.id));
+    const wordCounts = new Map<string, number>();
+    for (const cat of chosen) {
+      const seen = new Set<string>();
+      for (const w of cat.words) {
+        const key = w.trim().toUpperCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        wordCounts.set(key, (wordCounts.get(key) ?? 0) + 1);
+      }
+    }
+    const dupes = Array.from(wordCounts.entries()).filter(([, n]) => n > 1).map(([w]) => w);
+    if (dupes.length > 0) {
+      const list = dupes.slice(0, 3).join(', ');
+      const more = dupes.length > 3 ? ` +${dupes.length - 3} more` : '';
+      setError(`Selected categories share word${dupes.length > 1 ? 's' : ''}: ${list}${more}.`);
+      return;
+    }
+    router.push(`/play/custom?categories=${Array.from(selected).join(',')}`);
+  }
 
   const fetchCategories = useCallback(async (p: number, s: string, c: string) => {
     setLoading(true);
@@ -236,8 +276,14 @@ export default function AdminUserCategoriesPage() {
               </div>
             ) : (
               <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
-                {categories.map((cat) => (
-                  <div key={cat.id} className="p-4">
+                {categories.map((cat) => {
+                  const isSelected = selected.has(cat.id);
+                  return (
+                  <div
+                    key={cat.id}
+                    className="p-4 transition-colors"
+                    style={{ backgroundColor: isSelected ? 'rgba(186,129,197,0.10)' : 'transparent' }}
+                  >
                     {editingId === cat.id ? (
                       /* ── Edit form ── */
                       <div className="flex flex-col gap-3">
@@ -347,6 +393,18 @@ export default function AdminUserCategoriesPage() {
                         ) : (
                           <div className="flex items-center gap-2 shrink-0">
                             <button
+                              onClick={() => toggleSelect(cat.id)}
+                              className="px-3 py-1.5 rounded-full text-xs font-bold border transition-all"
+                              style={
+                                isSelected
+                                  ? { backgroundColor: '#ba81c5', borderColor: '#ba81c5', color: '#fff' }
+                                  : { borderColor: 'var(--outline-button-border)', color: 'var(--text)' }
+                              }
+                              aria-pressed={isSelected}
+                            >
+                              {isSelected ? '✓ Selected' : 'Select'}
+                            </button>
+                            <button
                               onClick={() => startEdit(cat)}
                               className="px-3 py-1.5 rounded-full text-xs font-bold border transition-opacity hover:opacity-70"
                               style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)' }}
@@ -365,7 +423,8 @@ export default function AdminUserCategoriesPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -396,6 +455,37 @@ export default function AdminUserCategoriesPage() {
           )}
         </div>
       </div>
+
+      {/* Sticky selection bar */}
+      {selected.size > 0 && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-30 border-t px-4 py-3 flex items-center justify-between gap-3"
+          style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="max-w-4xl mx-auto w-full flex items-center justify-between gap-3">
+            <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+              {selected.size} / 4 selected
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelected(new Set())}
+                className="px-4 py-2 rounded-full text-sm font-bold border transition-opacity hover:opacity-70"
+                style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)' }}
+              >
+                Clear
+              </button>
+              <button
+                onClick={playSelected}
+                disabled={selected.size !== 4}
+                className="px-5 py-2 rounded-full text-sm font-bold transition-opacity hover:opacity-80 disabled:opacity-40"
+                style={{ backgroundColor: 'var(--button-bg)', color: 'var(--button-text)' }}
+              >
+                Play Selected ›
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

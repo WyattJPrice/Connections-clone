@@ -267,7 +267,7 @@ export function GameBoard({ puzzle, noStats = false, onWin, onBack }: GameBoardP
         ))}
 
         {!gameOver && (
-          <div className="grid grid-cols-[repeat(4,144px)] sm:grid-cols-[repeat(4,150px)] gap-2 mx-auto w-fit">
+          <div className="grid grid-cols-[repeat(4,85px)] sm:grid-cols-[repeat(4,150px)] gap-2 mx-auto w-fit">
             {remainingTiles.map((word) => (
               <Tile
                 key={word}

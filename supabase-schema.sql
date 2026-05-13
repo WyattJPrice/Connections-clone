@@ -115,3 +115,24 @@ create policy "Public read puzzle_completions"
 create policy "User insert puzzle_completions"
   on puzzle_completions for insert
   with check (auth.uid() = user_id);
+
+-- Per-user record of which user_categories have been solved.
+-- Powers the "Solved" badges in /custom and the shuffle filter cross-device.
+create table if not exists category_completions (
+  user_id uuid references auth.users(id) on delete cascade not null,
+  category_id uuid references user_categories(id) on delete cascade not null,
+  completed_at timestamptz default now(),
+  primary key (user_id, category_id)
+);
+
+create index if not exists category_completions_user_id_idx on category_completions(user_id);
+
+alter table category_completions enable row level security;
+
+create policy "User read own category_completions"
+  on category_completions for select
+  using (auth.uid() = user_id);
+
+create policy "User insert own category_completions"
+  on category_completions for insert
+  with check (auth.uid() = user_id);

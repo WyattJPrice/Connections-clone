@@ -10,8 +10,9 @@ import {
 import { UserCategory } from '@/lib/types';
 import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 import { Toast } from '@/components/ui/Toast';
-import { getCompletedCategoryIds } from '@/lib/customProgress';
+import { getCompletedCategoryIds, loadCompletedCategoryIds } from '@/lib/customProgress';
 import { useKey } from '@/lib/useKey';
+import { getSupabase } from '@/lib/supabase';
 
 interface PuzzleDate {
   puzzleDate: string;
@@ -47,7 +48,20 @@ export default function CustomPage() {
   useKey('Escape', () => setModalOpen(false), modalOpen);
 
   useEffect(() => {
+    // Paint from the local cache immediately, then sync with the server.
     setCompletedIds(getCompletedCategoryIds());
+    let cancelled = false;
+    const hydrate = () => {
+      loadCompletedCategoryIds().then((ids) => {
+        if (!cancelled) setCompletedIds(ids);
+      });
+    };
+    hydrate();
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange(() => hydrate());
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

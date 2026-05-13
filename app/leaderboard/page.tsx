@@ -32,9 +32,21 @@ export default function LeaderboardPage() {
   });
 
   return (
-    <div className="min-h-screen px-4 py-6" style={{ backgroundColor: 'var(--bg)', paddingTop: NAVBAR_HEIGHT + 24 }}>
+    <>
       <Navbar />
-      <div className="max-w-lg mx-auto">
+      <div
+        className="themed-scrollbar"
+        style={{
+          position: 'fixed',
+          top: NAVBAR_HEIGHT,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflowY: 'auto',
+          backgroundColor: 'var(--bg)',
+        }}
+      >
+        <div className="max-w-lg mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <button
@@ -144,7 +156,8 @@ export default function LeaderboardPage() {
             ))}
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

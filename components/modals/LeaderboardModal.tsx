@@ -80,7 +80,7 @@ export function LeaderboardModal({ onClose }: LeaderboardModalProps) {
         </div>
 
         {/* Table — scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="themed-scrollbar flex-1 overflow-y-auto px-6 py-4">
           {loading ? (
             <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Loading…</p>
           ) : sorted.length === 0 ? (
