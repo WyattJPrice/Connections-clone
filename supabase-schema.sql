@@ -136,3 +136,22 @@ create policy "User read own category_completions"
 create policy "User insert own category_completions"
   on category_completions for insert
   with check (auth.uid() = user_id);
+
+-- Telegram admin bot: tracks pending multi-step edits per chat.
+-- When the bot prompts "reply with the new name" we store the chat+category
+-- so the next text reply can be routed to the right update.
+create table if not exists telegram_admin_state (
+  chat_id text primary key,
+  action text not null check (action in ('edit_name', 'edit_words')),
+  category_id uuid not null references user_categories(id) on delete cascade,
+  prompt_message_id bigint,
+  created_at timestamptz default now()
+);
+
+-- Realtime: let the admin page subscribe to new community submissions.
+-- Safe to run repeatedly; errors are swallowed by the do-block.
+do $$
+begin
+  alter publication supabase_realtime add table user_categories;
+exception when duplicate_object then null;
+end $$;

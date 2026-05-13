@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 import { format } from 'date-fns';
+import { getSupabase } from '@/lib/supabase';
+
+const NOTIF_STORAGE_KEY = 'admin_user_categories_notif_enabled';
 
 interface UserCategory {
   id: string;
@@ -37,6 +40,12 @@ export default function AdminUserCategoriesPage() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
+  const [tgSetupBusy, setTgSetupBusy] = useState(false);
+  const [tgSetupMsg, setTgSetupMsg] = useState<string | null>(null);
+  // Latest fetch args, so realtime callbacks always refresh with current filters.
+  const fetchArgsRef = useRef({ page: 1, search: '', creator: '' });
 
   const LIMIT = 50;
 
@@ -80,6 +89,7 @@ export default function AdminUserCategoriesPage() {
   }
 
   const fetchCategories = useCallback(async (p: number, s: string, c: string) => {
+    fetchArgsRef.current = { page: p, search: s, creator: c };
     setLoading(true);
     setError(null);
     try {
@@ -105,6 +115,84 @@ export default function AdminUserCategoriesPage() {
   useEffect(() => {
     fetchCategories(page, search, creatorFilter);
   }, [page, search, creatorFilter, fetchCategories]);
+
+  // Restore notification preference + permission state on mount.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    setNotifPermission(Notification.permission);
+    const stored = localStorage.getItem(NOTIF_STORAGE_KEY) === '1';
+    if (stored && Notification.permission === 'granted') {
+      setNotifEnabled(true);
+    }
+  }, []);
+
+  // Subscribe to Supabase realtime when notifications are enabled.
+  useEffect(() => {
+    if (!notifEnabled) return;
+    const supabase = getSupabase();
+    const channel = supabase
+      .channel('admin-user-categories')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'user_categories' },
+        (payload) => {
+          const row = payload.new as { name?: string; creator_name?: string };
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            new Notification('New community category', {
+              body: `${row.name ?? '(unnamed)'} — by ${row.creator_name ?? 'unknown'}`,
+              tag: 'community-submission',
+            });
+          }
+          const { page, search, creator } = fetchArgsRef.current;
+          fetchCategories(page, search, creator);
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [notifEnabled, fetchCategories]);
+
+  async function toggleNotifications() {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setError('Browser notifications are not supported here.');
+      return;
+    }
+    if (notifEnabled) {
+      setNotifEnabled(false);
+      localStorage.removeItem(NOTIF_STORAGE_KEY);
+      return;
+    }
+    let perm = Notification.permission;
+    if (perm === 'default') {
+      perm = await Notification.requestPermission();
+    }
+    setNotifPermission(perm);
+    if (perm !== 'granted') {
+      setError('Notification permission denied. Enable it in your browser settings.');
+      return;
+    }
+    setNotifEnabled(true);
+    localStorage.setItem(NOTIF_STORAGE_KEY, '1');
+    new Notification('Notifications enabled', {
+      body: 'You’ll get a popup whenever a new category is submitted.',
+    });
+  }
+
+  async function registerTelegramWebhook() {
+    setTgSetupBusy(true);
+    setTgSetupMsg(null);
+    try {
+      const res = await fetch('/api/telegram/setup', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Setup failed');
+      setTgSetupMsg(`Webhook registered: ${data.webhookUrl}`);
+    } catch (e) {
+      setTgSetupMsg(e instanceof Error ? e.message : 'Setup failed');
+    } finally {
+      setTgSetupBusy(false);
+    }
+  }
 
   function applySearch() {
     setPage(1);
@@ -198,6 +286,57 @@ export default function AdminUserCategoriesPage() {
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {total} total
             </span>
+          </div>
+
+          {/* Notification settings */}
+          <div
+            className="rounded-2xl border p-4 mb-4"
+            style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+          >
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+                  Desktop notifications
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {notifPermission === 'denied'
+                    ? 'Blocked by browser — enable in site settings.'
+                    : notifEnabled
+                    ? 'On — you’ll get a popup for each new submission.'
+                    : 'Off — click to enable popups for new submissions.'}
+                </div>
+              </div>
+              <button
+                onClick={toggleNotifications}
+                disabled={notifPermission === 'denied'}
+                className="px-4 py-2 rounded-full text-sm font-bold transition-opacity hover:opacity-80 disabled:opacity-40"
+                style={{
+                  backgroundColor: notifEnabled ? '#a0c35a' : 'var(--tile-bg)',
+                  color: notifEnabled ? '#1a1a1a' : 'var(--text)',
+                  border: notifEnabled ? 'none' : '1px solid var(--outline-button-border)',
+                }}
+              >
+                {notifEnabled ? 'Enabled' : 'Enable'}
+              </button>
+            </div>
+            <div className="mt-3 pt-3 border-t flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+                  Telegram bot
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {tgSetupMsg ?? 'Register the webhook so your bot can deliver submissions to your phone.'}
+                </div>
+              </div>
+              <button
+                onClick={registerTelegramWebhook}
+                disabled={tgSetupBusy}
+                className="px-4 py-2 rounded-full text-sm font-bold border transition-opacity hover:opacity-70 disabled:opacity-50"
+                style={{ borderColor: 'var(--outline-button-border)', color: 'var(--text)' }}
+              >
+                {tgSetupBusy ? 'Working…' : 'Register webhook'}
+              </button>
+            </div>
           </div>
 
           {/* Search / filter bar */}
