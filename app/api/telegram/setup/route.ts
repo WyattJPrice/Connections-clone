@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const origin = req.headers.get('origin') ?? `https://${req.headers.get('host')}`;
-  const webhookUrl = `${origin}/api/telegram/webhook`;
+  const host = req.headers.get('host') ?? '';
+  const webhookUrl = `https://${host}/api/telegram/webhook`;
 
   const result = await setWebhook(webhookUrl, secret);
   if (!result.ok) {
