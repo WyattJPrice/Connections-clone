@@ -140,7 +140,6 @@ export default function AdminUserCategoriesPage() {
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
             new Notification('New community category', {
               body: `${row.name ?? '(unnamed)'} — by ${row.creator_name ?? 'unknown'}`,
-              tag: 'community-submission',
             });
           }
           const { page, search, creator } = fetchArgsRef.current;
