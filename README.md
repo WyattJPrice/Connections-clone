@@ -2,7 +2,7 @@
 
 A close to exact clone of NYT Connections game.
 
-This site became pretty popular at school after its release at school:
+This site became pretty popular at school after its release:
 
 ![Connections Stats](https://connections.wyattprice.dev/api/stats.svg?v=1)
 
