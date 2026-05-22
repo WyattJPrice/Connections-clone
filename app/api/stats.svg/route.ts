@@ -22,7 +22,7 @@ export async function GET() {
   <rect width="420" height="160" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1"/>
 
   <!-- Header -->
-  <text x="20" y="32" fill="#f0f6fc" font-size="15" font-weight="bold" font-family="monospace">Connectio</text>
+  <text x="20" y="32" fill="#f0f6fc" font-size="15" font-weight="bold" font-family="monospace">Connections</text>
   <text x="108" y="32" fill="#8b949e" font-size="15" font-family="monospace">— live stats</text>
   <line x1="20" y1="42" x2="400" y2="42" stroke="#30363d" stroke-width="1"/>
 
