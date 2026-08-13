@@ -552,13 +552,13 @@ export default function CustomPage() {
             {/* Modal - Browse All Categories */}
             {modalOpen && createPortal(
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
+                className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
                 style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
                 onClick={() => setModalOpen(false)}
               >
                 <div
-                  className="rounded-2xl w-full max-w-4xl flex flex-col overflow-hidden"
-                  style={{ backgroundColor: 'var(--bg)', maxHeight: '90vh' }}
+                  className="rounded-t-2xl sm:rounded-2xl w-full max-w-4xl flex flex-col overflow-hidden"
+                  style={{ backgroundColor: 'var(--bg)', maxHeight: '92dvh' }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Modal Header */}
@@ -611,7 +611,7 @@ export default function CustomPage() {
                   </div>
 
                   {/* Modal Content */}
-                  <div ref={modalScrollRef} className="themed-scrollbar overflow-y-auto flex-1 px-4 sm:px-6 py-4">
+                  <div ref={modalScrollRef} className="themed-scrollbar overflow-y-auto overscroll-contain flex-1 px-3 sm:px-6 py-3 sm:py-4">
                     {modalLoading ? (
                       <CategoryTilesSkeleton count={6} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" />
                     ) : modalCategories.length === 0 ? (
