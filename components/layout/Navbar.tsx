@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { signOut, getDisplayName, hasDisplayNameSet, updateDisplayName } from '@/lib/auth';
+import { resetCompletedCategoryCache } from '@/lib/customProgress';
 import { useKey } from '@/lib/useKey';
 import { useModals } from '@/components/modals/ModalsProvider';
 import { useTheme } from '@/components/ThemeProvider';
@@ -76,6 +77,7 @@ export function Navbar() {
 
   async function handleSignOut() {
     await signOut();
+    resetCompletedCategoryCache();
     setAccountOpen(false);
     router.refresh();
   }

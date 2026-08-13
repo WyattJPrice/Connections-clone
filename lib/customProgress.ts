@@ -1,8 +1,11 @@
 'use client';
 
-import { getSession } from 'next-auth/react';
-
 const KEY = 'connections_completed_categories';
+
+// In-memory cache used while signed in. Account solves are never written to
+// the device; this holds them for the current page session instead. Reset on
+// sign-out so a signed-out user sees only their device solves.
+let memoryCache: Set<string> | null = null;
 
 function readCache(): Set<string> {
   if (typeof window === 'undefined') return new Set();
@@ -23,65 +26,82 @@ function writeCache(ids: Set<string>): void {
   }
 }
 
-/** Synchronous read from the localStorage cache (no network). */
-export function getCompletedCategoryIds(): Set<string> {
-  return readCache();
-}
-
-async function isLoggedIn(): Promise<boolean> {
+function clearCache(): void {
+  if (typeof window === 'undefined') return;
   try {
-    const session = await getSession();
-    return !!session?.user;
+    localStorage.removeItem(KEY);
   } catch {
-    return false;
+    // ignore
   }
 }
 
+/** Synchronous read — in-memory account cache when signed in, else device. */
+export function getCompletedCategoryIds(): Set<string> {
+  return memoryCache ?? readCache();
+}
+
 /**
- * Fetch the authoritative list from the server (when logged in), merge any
- * local-only IDs up, and refresh the cache. Returns the merged set.
- * Falls back to the local cache when logged out or offline.
+ * Drop the in-memory account cache. Call when a user signs out so their
+ * account solves don't stay visible on this device afterwards.
  */
-export async function loadCompletedCategoryIds(): Promise<Set<string>> {
-  const local = readCache();
-  if (!(await isLoggedIn())) return local;
+export function resetCompletedCategoryCache(): void {
+  memoryCache = null;
+}
+
+/**
+ * Load the solved categories for the current state.
+ * - Signed in (isLoggedIn true): push any device solves up to the account
+ *   (one-time migration), then clear the device cache so account solves live
+ *   only in the account.
+ * - Signed out: return the device cache.
+ *
+ * `isLoggedIn` must come from the live session context (e.g. useSession), not
+ * from an internal re-check, so the result reflects sign-out immediately.
+ */
+export async function loadCompletedCategoryIds(isLoggedIn: boolean): Promise<Set<string>> {
+  if (!isLoggedIn) {
+    memoryCache = null;
+    return readCache();
+  }
 
   try {
+    const local = readCache();
     const res = await fetch('/api/category-completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: Array.from(local) }),
     });
-    if (!res.ok) return local;
+    if (!res.ok) return readCache();
     const data: { ids?: string[] } = await res.json();
-    const merged = new Set([...(data.ids ?? []), ...local]);
-    writeCache(merged);
-    return merged;
+    // Device solves are now on the account — clear the device so account data
+    // isn't left behind.
+    clearCache();
+    memoryCache = new Set(data.ids ?? []);
+    return memoryCache;
   } catch {
-    return local;
+    return readCache();
   }
 }
 
 /**
- * Mark a category solved. Always updates the localStorage cache; also POSTs
- * to the server when logged in (fire-and-forget — failures are non-critical
- * since the next `loadCompletedCategoryIds` call will push it up).
+ * Mark a category solved.
+ * - Signed in (isLoggedIn true): save to the account only (in-memory cache +
+ *   server POST).
+ * - Signed out: save to the device.
  */
-export function markCategoryCompleted(id: string): void {
+export function markCategoryCompleted(id: string, isLoggedIn: boolean): void {
+  if (isLoggedIn) {
+    memoryCache?.add(id);
+    void fetch('/api/category-completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [id] }),
+    }).catch(() => {
+      // Non-critical — the next hydrate will reconcile.
+    });
+    return;
+  }
   const ids = readCache();
   ids.add(id);
   writeCache(ids);
-
-  void (async () => {
-    if (!(await isLoggedIn())) return;
-    try {
-      await fetch('/api/category-completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: [id] }),
-      });
-    } catch {
-      // Non-critical — the next hydrate will reconcile.
-    }
-  })();
 }

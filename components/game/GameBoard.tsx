@@ -8,6 +8,7 @@ import { MistakeDots } from './MistakeDots';
 import { Toast } from '@/components/ui/Toast';
 import { saveGameState, getSavedGameState, recordGameResult } from '@/lib/stats';
 import { markCategoryCompleted } from '@/lib/customProgress';
+import { useSession } from 'next-auth/react';
 import { useKey } from '@/lib/useKey';
 import { useModals } from '@/components/modals/ModalsProvider';
 
@@ -45,6 +46,8 @@ interface SavedState {
 
 export function GameBoard({ puzzle, noStats = false, onWin, onBack }: GameBoardProps) {
   const { openStats } = useModals();
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user?.id;
   const allWords = puzzle.categories.flatMap((c) => c.words);
   const wordToCategory = useCallback(
     (word: string): Category => {
@@ -195,7 +198,7 @@ export function GameBoard({ puzzle, noStats = false, onWin, onBack }: GameBoardP
       // Track completed community categories for the browse page
       if (noStats) {
         const solvedCat = puzzle.categories.find((c) => c.color === color);
-        if (solvedCat) markCategoryCompleted(solvedCat.id);
+        if (solvedCat) markCategoryCompleted(solvedCat.id, isLoggedIn);
       }
 
       // Record stats once, right here, with exact values

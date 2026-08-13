@@ -78,7 +78,7 @@ export default function CustomPage() {
     setCompletedIds(getCompletedCategoryIds());
     let cancelled = false;
     const hydrate = () => {
-      loadCompletedCategoryIds().then((ids) => {
+      loadCompletedCategoryIds(!!userId).then((ids) => {
         if (!cancelled) setCompletedIds(ids);
       });
     };
