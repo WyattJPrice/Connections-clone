@@ -28,6 +28,7 @@ interface EditorCategory {
   name: string;
   words: [string, string, string, string];
   creatorName?: string;
+  creatorImage?: string;
 }
 
 function emptyCategory(color: Color): EditorCategory {
@@ -88,6 +89,7 @@ export default function PuzzleEditorPage() {
                 name: cat?.name ?? '',
                 words: cat ? (cat.words as [string, string, string, string]) : ['', '', '', ''],
                 creatorName: cat?.creatorName,
+                creatorImage: cat?.creatorImage,
               };
             })
           );
@@ -109,7 +111,7 @@ export default function PuzzleEditorPage() {
       prev.map((cat) => {
         if (cat.color !== color) return cat;
         if (field === 'name') {
-          return { ...cat, name: valueOrIndex as string, creatorName: undefined };
+          return { ...cat, name: valueOrIndex as string, creatorName: undefined, creatorImage: undefined };
         } else {
           const newWords = [...cat.words] as [string, string, string, string];
           newWords[valueOrIndex as number] = wordValue ?? '';
@@ -128,6 +130,7 @@ export default function PuzzleEditorPage() {
           name: uc.name,
           words: uc.words as [string, string, string, string],
           creatorName: uc.creatorName,
+          creatorImage: uc.creatorImage,
         };
       })
     );
@@ -162,6 +165,7 @@ export default function PuzzleEditorPage() {
           name: cat.name.trim(),
           words: cat.words.map((w) => w.trim().toUpperCase()),
           creatorName: cat.creatorName ?? null,
+          creatorImage: cat.creatorImage ?? null,
         })),
       };
       const res = await fetch(`/api/admin/puzzles/${dateStr}`, {

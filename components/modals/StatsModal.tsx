@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { getStats } from '@/lib/stats';
 import { Stats } from '@/lib/types';
 import { useKey } from '@/lib/useKey';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface StatsModalProps {
   onClose: () => void;
@@ -50,7 +51,25 @@ export function StatsModal({ onClose }: StatsModalProps) {
         <hr style={{ borderColor: 'var(--border)' }} className="mb-5" />
 
         {!stats ? (
-          <p className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Loading…</p>
+          <div className="py-4 flex flex-col gap-4">
+            <div className="grid grid-cols-4 gap-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-1.5">
+                  <Skeleton className="w-10 h-8 rounded" />
+                  <Skeleton className="w-12 h-3 rounded" />
+                </div>
+              ))}
+            </div>
+            <hr style={{ borderColor: 'var(--border)' }} />
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Skeleton className="w-3 h-3 rounded" />
+                  <Skeleton className="flex-1 rounded h-5" />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <>
             {/* Top stats */}

@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabaseAdmin
     .from('user_categories')
-    .select('id, creator_id, creator_name, name, words, created_at, play_count', { count: 'exact' })
+    .select('id, creator_id, creator_name, creator_avatar, name, words, created_at, play_count', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
       id: c.id,
       creatorId: c.creator_id,
       creatorName: c.creator_name,
+      creatorImage: c.creator_avatar ?? undefined,
       name: c.name,
       words: c.words,
       createdAt: c.created_at,

@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { UserCategory } from '@/lib/types';
 import { useKey } from '@/lib/useKey';
+import { Avatar } from '@/components/ui/Avatar';
+import { ListSkeleton } from '@/components/ui/Skeleton';
 
 interface Props {
   onSelect: (cat: UserCategory) => void;
@@ -78,7 +80,7 @@ export function CommunityBrowserModal({ onSelect, onClose }: Props) {
 
         {/* Results */}
         <div className="themed-scrollbar flex-1 overflow-y-auto px-5 py-3 flex flex-col gap-2">
-          {loading && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</p>}
+          {loading && <ListSkeleton rows={4} />}
           {!loading && results.length === 0 && (
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {search ? 'No categories found.' : 'No community categories yet.'}
@@ -97,7 +99,8 @@ export function CommunityBrowserModal({ onSelect, onClose }: Props) {
                 <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                   {cat.words.join(', ')}
                 </p>
-                <p className="text-xs mt-1 font-bold" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-xs mt-1 font-bold flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                  <Avatar src={cat.creatorImage} name={cat.creatorName} size={14} />
                   by {cat.creatorName}
                 </p>
               </div>

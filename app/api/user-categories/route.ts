@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const idList = ids.split(',').filter(Boolean);
     const { data, error } = await db
       .from('user_categories')
-      .select('id, creator_id, creator_name, name, words, created_at, play_count')
+      .select('id, creator_id, creator_name, creator_avatar, name, words, created_at, play_count')
       .in('id', idList);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({
@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
         id: c.id,
         creatorId: c.creator_id,
         creatorName: c.creator_name,
+        creatorImage: c.creator_avatar ?? undefined,
         name: c.name,
         words: c.words,
         createdAt: c.created_at,
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
 
   let query = db
     .from('user_categories')
-    .select('id, creator_id, creator_name, name, words, created_at, play_count', { count: 'exact' })
+    .select('id, creator_id, creator_name, creator_avatar, name, words, created_at, play_count', { count: 'exact' })
     .order('created_at', { ascending: false });
 
   if (creatorName) {
@@ -72,6 +73,7 @@ export async function GET(req: NextRequest) {
         id: c.id,
         creatorId: c.creator_id,
         creatorName: c.creator_name,
+        creatorImage: c.creator_avatar ?? undefined,
         name: c.name,
         words: c.words,
         createdAt: c.created_at,
@@ -94,6 +96,7 @@ export async function GET(req: NextRequest) {
       id: c.id,
       creatorId: c.creator_id,
       creatorName: c.creator_name,
+      creatorImage: c.creator_avatar ?? undefined,
       name: c.name,
       words: c.words,
       createdAt: c.created_at,
@@ -130,10 +133,11 @@ export async function POST(req: NextRequest) {
     .insert({
       creator_id: user.id,
       creator_name: creatorName,
+      creator_avatar: user.image ?? null,
       name: name.trim().toUpperCase(),
       words: words.map((w: string) => w.trim().toUpperCase()),
     })
-    .select('id, creator_id, creator_name, name, words, created_at, play_count')
+    .select('id, creator_id, creator_name, creator_avatar, name, words, created_at, play_count')
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -151,6 +155,7 @@ export async function POST(req: NextRequest) {
       id: data.id,
       creatorId: data.creator_id,
       creatorName: data.creator_name,
+      creatorImage: data.creator_avatar ?? undefined,
       name: data.name,
       words: data.words,
       createdAt: data.created_at,

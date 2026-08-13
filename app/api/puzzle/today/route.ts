@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
   const { data: puzzle, error } = await supabaseAdmin
     .from('puzzles')
-    .select('id, puzzle_date, puzzle_number, categories(id, name, color, words, creator_name)')
+    .select('id, puzzle_date, puzzle_number, categories(id, name, color, words, creator_name, creator_avatar)')
     .eq('puzzle_date', today)
     .single();
 
@@ -26,12 +26,13 @@ export async function GET(request: Request) {
       id: puzzle.id,
       puzzleDate: puzzle.puzzle_date,
       puzzleNumber: puzzle.puzzle_number,
-      categories: (puzzle.categories as Array<{id: string; name: string; color: string; words: string[]; creator_name: string | null}>).map((c) => ({
+      categories: (puzzle.categories as Array<{id: string; name: string; color: string; words: string[]; creator_name: string | null; creator_avatar: string | null}>).map((c) => ({
         id: c.id,
         name: c.name,
         color: c.color,
         words: c.words,
         creatorName: c.creator_name ?? undefined,
+        creatorImage: c.creator_avatar ?? undefined,
       })),
     },
   });

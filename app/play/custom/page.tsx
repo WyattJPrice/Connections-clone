@@ -8,6 +8,7 @@ import { Puzzle, UserCategory, Color } from '@/lib/types';
 import { GameBoard } from '@/components/game/GameBoard';
 import { GameHeader } from '@/components/game/GameHeader';
 import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
+import { PuzzleBoardSkeleton } from '@/components/ui/Skeleton';
 
 const COLORS: Color[] = ['yellow', 'blue', 'green', 'purple'];
 
@@ -32,6 +33,7 @@ function buildPuzzle(categories: UserCategory[]): Puzzle {
       color: shuffledColors[i],
       words: uc.words,
       creatorName: uc.creatorName,
+      creatorImage: uc.creatorImage,
     })),
   };
 }
@@ -107,8 +109,12 @@ function CustomPlayContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+      <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <Navbar />
+        <div style={{ paddingTop: NAVBAR_HEIGHT }}>
+          <GameHeader />
+          <PuzzleBoardSkeleton />
+        </div>
       </div>
     );
   }
@@ -154,8 +160,11 @@ export default function CustomPlayPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-          <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+        <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+          <Navbar />
+          <div style={{ paddingTop: NAVBAR_HEIGHT }}>
+            <PuzzleBoardSkeleton />
+          </div>
         </div>
       }
     >

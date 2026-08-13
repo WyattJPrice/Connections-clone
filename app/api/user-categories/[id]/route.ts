@@ -49,7 +49,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     })
     .eq('id', id)
     .eq('creator_id', user.id)
-    .select('id, creator_id, creator_name, name, words, created_at')
+    .select('id, creator_id, creator_name, creator_avatar, name, words, created_at')
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -60,6 +60,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
       id: data.id,
       creatorId: data.creator_id,
       creatorName: data.creator_name,
+      creatorImage: data.creator_avatar ?? undefined,
       name: data.name,
       words: data.words,
       createdAt: data.created_at,

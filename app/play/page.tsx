@@ -6,6 +6,7 @@ import { Puzzle } from '@/lib/types';
 import { GameBoard } from '@/components/game/GameBoard';
 import { GameHeader } from '@/components/game/GameHeader';
 import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
+import { PuzzleBoardSkeleton } from '@/components/ui/Skeleton';
 import { recordCompletion } from '@/lib/recordCompletion';
 
 function PlayContent() {
@@ -50,8 +51,12 @@ function PlayContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Loading puzzle…</p>
+      <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <Navbar />
+        <div style={{ paddingTop: NAVBAR_HEIGHT }}>
+          <GameHeader />
+          <PuzzleBoardSkeleton />
+        </div>
       </div>
     );
   }
@@ -90,8 +95,11 @@ export default function PlayPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-          <p style={{ color: 'var(--text-muted)' }}>Loading puzzle…</p>
+        <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+          <Navbar />
+          <div style={{ paddingTop: NAVBAR_HEIGHT }}>
+            <PuzzleBoardSkeleton />
+          </div>
         </div>
       }
     >

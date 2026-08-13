@@ -1,6 +1,7 @@
 'use client';
 
 import { Category } from '@/lib/types';
+import { Avatar } from '@/components/ui/Avatar';
 
 const COLOR_MAP: Record<string, string> = {
   yellow: '#f9df6d',
@@ -30,7 +31,8 @@ export function CategoryRow({ category, animate }: CategoryRowProps) {
         {category.words.join(', ')}
       </p>
       {category.creatorName && (
-        <p className="font-normal text-xs text-black/60 text-center mt-1">
+        <p className="font-normal text-xs text-black/60 text-center mt-1 flex items-center justify-center gap-1">
+          <Avatar src={category.creatorImage} name={category.creatorName} size={14} />
           by {category.creatorName}
         </p>
       )}

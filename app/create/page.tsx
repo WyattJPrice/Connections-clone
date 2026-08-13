@@ -7,6 +7,8 @@ import { containsProfanity } from '@/lib/profanity';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 import { Toast } from '@/components/ui/Toast';
+import { Avatar } from '@/components/ui/Avatar';
+import { ListSkeleton, FullPageSkeleton } from '@/components/ui/Skeleton';
 import { UserCategory } from '@/lib/types';
 import { useKey } from '@/lib/useKey';
 
@@ -148,11 +150,7 @@ export default function CreatePage() {
 
   // Loading auth
   if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
-      </div>
-    );
+    return <FullPageSkeleton />;
   }
 
   // Not signed in
@@ -207,7 +205,7 @@ export default function CreatePage() {
         {/* My Categories tab */}
         {tab === 'mine' && (
           <div className="flex flex-col gap-3">
-            {loadingCats && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</p>}
+            {loadingCats && <ListSkeleton rows={3} />}
             {!loadingCats && myCategories.length === 0 && (
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 No categories yet. Create your first one!
@@ -265,8 +263,9 @@ export default function CreatePage() {
                 </div>
               ) : (
                 /* Display */
-                <div key={cat.id} className="rounded-xl border px-4 py-3 flex items-start justify-between gap-3" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--tile-bg)' }}>
-                  <div className="min-w-0">
+                <div key={cat.id} className="rounded-xl border px-4 py-3 flex items-center gap-3" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--tile-bg)' }}>
+                  <Avatar src={user.image} name={firstName} size={32} />
+                  <div className="min-w-0 flex-1">
                     <p className="font-black text-sm uppercase tracking-wide" style={{ color: 'var(--text)' }}>{cat.name}</p>
                     <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{cat.words.join(', ')}</p>
                   </div>

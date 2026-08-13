@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import type { LeaderboardEntry } from '@/app/api/leaderboard/route';
 import { useKey } from '@/lib/useKey';
+import { Avatar } from '@/components/ui/Avatar';
+import { ListSkeleton } from '@/components/ui/Skeleton';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
@@ -82,7 +84,7 @@ export function LeaderboardModal({ onClose }: LeaderboardModalProps) {
         {/* Table — scrollable */}
         <div className="themed-scrollbar flex-1 overflow-y-auto px-6 py-4">
           {loading ? (
-            <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Loading…</p>
+            <ListSkeleton rows={8} />
           ) : sorted.length === 0 ? (
             <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>
               {tab === 'created' ? 'No categories created yet — make the first one!' : 'No completions yet — be the first!'}
@@ -110,8 +112,11 @@ export function LeaderboardModal({ onClose }: LeaderboardModalProps) {
                       : <span className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>
                     }
                   </span>
-                  <span className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
-                    {entry.userName}
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Avatar src={entry.userImage} name={entry.userName} size={24} />
+                    <span className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
+                      {entry.userName}
+                    </span>
                   </span>
                   <span className="font-black text-sm tabular-nums" style={{ color: '#c2410c' }}>
                     {entry.createdCount}
@@ -144,8 +149,11 @@ export function LeaderboardModal({ onClose }: LeaderboardModalProps) {
                       : <span className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>
                     }
                   </span>
-                  <span className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
-                    {entry.userName}
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Avatar src={entry.userImage} name={entry.userName} size={24} />
+                    <span className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
+                      {entry.userName}
+                    </span>
                   </span>
                   <span className="font-black text-sm tabular-nums" style={{ color: '#ba81c5' }}>
                     {entry.dailyCount}

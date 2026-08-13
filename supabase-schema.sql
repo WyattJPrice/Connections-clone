@@ -61,11 +61,15 @@ create policy "Public insert game_results"
 -- Add creator_name to categories (nullable — only set when sourced from community)
 alter table categories add column if not exists creator_name text;
 
+-- Google avatar URL snapshot for the category creator (nullable)
+alter table categories add column if not exists creator_avatar text;
+
 -- User-created categories (individual, not full puzzles)
 create table if not exists user_categories (
   id uuid primary key default gen_random_uuid(),
   creator_id uuid references next_auth.users(id) on delete cascade not null,
   creator_name text not null,
+  creator_avatar text,
   name text not null,
   words text[] not null,
   constraint user_category_words_length check (array_length(words, 1) = 4),

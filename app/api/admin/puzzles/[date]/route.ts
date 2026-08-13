@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
 
   const { data: puzzle } = await supabaseAdmin
     .from('puzzles')
-    .select('id, puzzle_date, puzzle_number, categories(id, name, color, words, creator_name)')
+    .select('id, puzzle_date, puzzle_number, categories(id, name, color, words, creator_name, creator_avatar)')
     .eq('puzzle_date', date)
     .single();
 
@@ -27,12 +27,13 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
       id: puzzle.id,
       puzzleDate: puzzle.puzzle_date,
       puzzleNumber: puzzle.puzzle_number,
-      categories: (puzzle.categories as Array<{id: string; name: string; color: string; words: string[]; creator_name: string | null}>).map((c) => ({
+      categories: (puzzle.categories as Array<{id: string; name: string; color: string; words: string[]; creator_name: string | null; creator_avatar: string | null}>).map((c) => ({
         id: c.id,
         name: c.name,
         color: c.color,
         words: c.words,
         creatorName: c.creator_name ?? undefined,
+        creatorImage: c.creator_avatar ?? undefined,
       })),
     },
   });
@@ -68,12 +69,13 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   }
 
   const { error: catError } = await supabaseAdmin.from('categories').insert(
-    body.categories.map((c: { color: string; name: string; words: string[]; creatorName?: string | null }) => ({
+    body.categories.map((c: { color: string; name: string; words: string[]; creatorName?: string | null; creatorImage?: string | null }) => ({
       puzzle_id: puzzle.id,
       color: c.color,
       name: c.name,
       words: c.words,
       creator_name: c.creatorName ?? null,
+      creator_avatar: c.creatorImage ?? null,
     }))
   );
 
@@ -109,12 +111,13 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   await supabaseAdmin.from('categories').delete().eq('puzzle_id', puzzle.id);
 
   const { error: catError } = await supabaseAdmin.from('categories').insert(
-    body.categories.map((c: { color: string; name: string; words: string[]; creatorName?: string | null }) => ({
+    body.categories.map((c: { color: string; name: string; words: string[]; creatorName?: string | null; creatorImage?: string | null }) => ({
       puzzle_id: puzzle.id,
       color: c.color,
       name: c.name,
       words: c.words,
       creator_name: c.creatorName ?? null,
+      creator_avatar: c.creatorImage ?? null,
     }))
   );
 

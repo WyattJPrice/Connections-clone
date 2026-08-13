@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
@@ -11,6 +11,8 @@ import {
 import { UserCategory } from '@/lib/types';
 import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 import { Toast } from '@/components/ui/Toast';
+import { Avatar } from '@/components/ui/Avatar';
+import { CalendarSkeleton, CategoryTilesSkeleton } from '@/components/ui/Skeleton';
 import { getCompletedCategoryIds, loadCompletedCategoryIds } from '@/lib/customProgress';
 import { useKey } from '@/lib/useKey';
 import { useSession } from 'next-auth/react';
@@ -38,13 +40,33 @@ export default function CustomPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSort, setModalSort] = useState<'all' | 'completed' | 'unsolved'>('all');
-  const [modalCategories, setModalCategories] = useState<UserCategory[]>([]);
+  const [modalAll, setModalAll] = useState<UserCategory[]>([]);
   const [modalPage, setModalPage] = useState(0);
-  const [modalTotal, setModalTotal] = useState(0);
   const [modalLoading, setModalLoading] = useState(false);
 
   const MODAL_PAGE_SIZE = 100;
-  const modalPageCount = Math.max(1, Math.ceil(modalTotal / MODAL_PAGE_SIZE));
+  const modalScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Sort so unplayed/new categories come first (by recency) and played ones
+  // are pushed to the end, then paginate client-side so the first pages are
+  // always fresh categories.
+  const modalFiltered = modalAll
+    .filter((cat) => {
+      if (modalSort === 'completed') return completedIds.has(cat.id);
+      if (modalSort === 'unsolved') return !completedIds.has(cat.id);
+      return true;
+    })
+    .sort((a, b) => {
+      const aCompleted = completedIds.has(a.id) ? 1 : 0;
+      const bCompleted = completedIds.has(b.id) ? 1 : 0;
+      if (aCompleted !== bCompleted) return aCompleted - bCompleted;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  const modalPageCount = Math.max(1, Math.ceil(modalFiltered.length / MODAL_PAGE_SIZE));
+  const modalCategories = modalFiltered.slice(
+    modalPage * MODAL_PAGE_SIZE,
+    (modalPage + 1) * MODAL_PAGE_SIZE
+  );
 
   const { data: session } = useSession();
   const userId = session?.user?.id ?? null;
@@ -97,32 +119,51 @@ export default function CustomPage() {
     return () => clearTimeout(id);
   }, [search, searchCategories]);
 
-  // Modal: fetch its own paginated slice. Resets to page 0 when search changes.
+  // Modal: fetch ALL matching categories once (paging through the API) so the
+  // client can sort unplayed first globally. Resets when search changes.
   useEffect(() => {
     if (!modalOpen) return;
+    let cancelled = false;
     setModalLoading(true);
-    const params = new URLSearchParams({
-      page: String(modalPage),
-      pageSize: String(MODAL_PAGE_SIZE),
-    });
-    if (search.trim()) params.set('creatorName', search.trim());
-    fetch(`/api/user-categories?${params.toString()}`, { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => {
-        setModalCategories(d.categories ?? []);
-        setModalTotal(d.total ?? 0);
-      })
-      .catch(() => {
-        setModalCategories([]);
-        setModalTotal(0);
-      })
-      .finally(() => setModalLoading(false));
-  }, [modalOpen, modalPage, search]);
+    (async () => {
+      try {
+        const all: UserCategory[] = [];
+        let page = 0;
+        let total = 0;
+        do {
+          const params = new URLSearchParams({
+            page: String(page),
+            pageSize: String(MODAL_PAGE_SIZE),
+          });
+          if (search.trim()) params.set('creatorName', search.trim());
+          const r = await fetch(`/api/user-categories?${params.toString()}`, { cache: 'no-store' });
+          const d = await r.json();
+          const cats: UserCategory[] = d.categories ?? [];
+          all.push(...cats);
+          total = d.total ?? 0;
+          page += 1;
+        } while (!cancelled && all.length < total && all.length % MODAL_PAGE_SIZE === 0);
+        if (!cancelled) setModalAll(all);
+      } catch {
+        if (!cancelled) setModalAll([]);
+      } finally {
+        if (!cancelled) setModalLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [modalOpen, search]);
 
-  // Reset to page 1 whenever the search term changes while modal is open.
+  // Reset to page 0 whenever the search term or sort changes while modal is open.
   useEffect(() => {
     if (modalOpen) setModalPage(0);
-  }, [search, modalOpen]);
+  }, [search, modalSort, modalOpen]);
+
+  // Scroll the category list back to the top when the page changes.
+  useEffect(() => {
+    if (modalScrollRef.current) modalScrollRef.current.scrollTop = 0;
+  }, [modalPage]);
 
   function openModal() {
     setModalPage(0);
@@ -298,7 +339,7 @@ export default function CustomPage() {
             </h2>
 
             {calendarLoading ? (
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</p>
+              <CalendarSkeleton />
             ) : (
               <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
                 {/* Month navigation */}
@@ -415,7 +456,7 @@ export default function CustomPage() {
 
             {/* Results - Tile View */}
             {searchLoading ? (
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Searching…</p>
+              <CategoryTilesSkeleton count={8} />
             ) : results.length === 0 ? (
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 {search ? 'No categories found.' : 'No community categories yet. Be the first to create one!'}
@@ -467,8 +508,9 @@ export default function CustomPage() {
                             </>
                           ) : (
                             <>
-                              <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                                by {cat.creatorName}
+                              <p className="font-bold text-sm flex items-center gap-2 truncate" style={{ color: 'var(--text)' }}>
+                                <Avatar src={cat.creatorImage} name={cat.creatorName} size={32} />
+                                {cat.creatorName}
                               </p>
                               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                                 {format(new Date(cat.createdAt), 'MMM d, yyyy')} · {cat.playCount ?? 0} {(cat.playCount ?? 0) === 1 ? 'play' : 'plays'}
@@ -510,21 +552,21 @@ export default function CustomPage() {
             {/* Modal - Browse All Categories */}
             {modalOpen && createPortal(
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
                 style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
                 onClick={() => setModalOpen(false)}
               >
                 <div
                   className="rounded-2xl w-full max-w-4xl flex flex-col overflow-hidden"
-                  style={{ backgroundColor: 'var(--bg)', maxHeight: '85vh' }}
+                  style={{ backgroundColor: 'var(--bg)', maxHeight: '90vh' }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Modal Header */}
-                  <div className="border-b px-6 py-4 flex items-center justify-between shrink-0" style={{ borderColor: 'var(--border)' }}>
+                  <div className="border-b px-4 sm:px-6 py-4 flex items-center justify-between shrink-0" style={{ borderColor: 'var(--border)' }}>
                     <h3 className="font-black text-lg" style={{ color: 'var(--text)' }}>
                       All Categories
                       <span className="ml-2 text-sm font-normal" style={{ color: 'var(--text-muted)' }}>
-                        {modalTotal} total
+                        {modalAll.length} total
                       </span>
                     </h3>
                     <button
@@ -537,7 +579,7 @@ export default function CustomPage() {
                   </div>
 
                   {/* Modal Controls */}
-                  <div className="border-b px-6 py-3 flex items-center gap-3 shrink-0" style={{ borderColor: 'var(--border)' }}>
+                  <div className="border-b px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 shrink-0" style={{ borderColor: 'var(--border)' }}>
                     <input
                       type="text"
                       placeholder="Search by name…"
@@ -555,7 +597,7 @@ export default function CustomPage() {
                         <button
                           key={sort}
                           onClick={() => setModalSort(sort)}
-                          className="text-xs font-bold px-3 py-1.5 rounded-full border transition-all"
+                          className="flex-1 sm:flex-none text-xs font-bold px-3 py-1.5 rounded-full border transition-all"
                           style={
                             modalSort === sort
                               ? { backgroundColor: 'var(--button-bg)', color: 'var(--button-text)', borderColor: 'var(--button-bg)' }
@@ -569,27 +611,16 @@ export default function CustomPage() {
                   </div>
 
                   {/* Modal Content */}
-                  <div className="themed-scrollbar overflow-y-auto flex-1 px-6 py-4">
+                  <div ref={modalScrollRef} className="themed-scrollbar overflow-y-auto flex-1 px-4 sm:px-6 py-4">
                     {modalLoading ? (
-                      <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>Loading…</p>
+                      <CategoryTilesSkeleton count={6} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" />
                     ) : modalCategories.length === 0 ? (
                       <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
                         No categories found.
                       </p>
                     ) : (
-                    <div className="grid grid-cols-3 gap-2">
-                      {modalCategories
-                        .filter((cat) => {
-                          if (modalSort === 'completed') return completedIds.has(cat.id);
-                          if (modalSort === 'unsolved') return !completedIds.has(cat.id);
-                          return true;
-                        })
-                        .sort((a, b) => {
-                          const aCompleted = completedIds.has(a.id) ? 1 : 0;
-                          const bCompleted = completedIds.has(b.id) ? 1 : 0;
-                          return aCompleted - bCompleted;
-                        })
-                        .map((cat) => {
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {modalCategories.map((cat) => {
                           const isCompleted = completedIds.has(cat.id);
                           const isSelected = selected.has(cat.id);
 
@@ -633,8 +664,9 @@ export default function CustomPage() {
                                   </>
                                 ) : (
                                   <>
-                                    <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                                      by {cat.creatorName}
+                                    <p className="font-bold text-sm flex items-center gap-2 truncate" style={{ color: 'var(--text)' }}>
+                                      <Avatar src={cat.creatorImage} name={cat.creatorName} size={32} />
+                                      {cat.creatorName}
                                     </p>
                                     <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                                       {format(new Date(cat.createdAt), 'MMM d, yyyy')} · {cat.playCount ?? 0} {(cat.playCount ?? 0) === 1 ? 'play' : 'plays'}
@@ -661,7 +693,7 @@ export default function CustomPage() {
 
                   {/* Pagination */}
                   {modalPageCount > 1 && (
-                    <div className="border-t px-6 py-3 flex items-center justify-center gap-3 shrink-0" style={{ borderColor: 'var(--border)' }}>
+                    <div className="border-t px-4 sm:px-6 py-3 flex items-center justify-center gap-3 shrink-0" style={{ borderColor: 'var(--border)' }}>
                       <button
                         onClick={() => setModalPage((p) => Math.max(0, p - 1))}
                         disabled={modalPage === 0 || modalLoading}
@@ -686,11 +718,11 @@ export default function CustomPage() {
 
                   {/* Modal Footer */}
                   {selected.size > 0 && (
-                    <div className="border-t px-6 py-4 flex items-center justify-between shrink-0" style={{ borderColor: 'var(--border)' }}>
+                    <div className="border-t px-4 sm:px-6 py-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 justify-between shrink-0" style={{ borderColor: 'var(--border)' }}>
                       <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>
                         {selected.size} / 4 selected
                       </span>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 justify-end">
                         {selected.size === 4 && (
                           <button
                             onClick={() => { setModalOpen(false); handlePlay(); }}
@@ -711,7 +743,7 @@ export default function CustomPage() {
                     </div>
                   )}
                   {selected.size === 0 && (
-                    <div className="border-t px-6 py-4 flex justify-end shrink-0" style={{ borderColor: 'var(--border)' }}>
+                    <div className="border-t px-4 sm:px-6 py-4 flex justify-end shrink-0" style={{ borderColor: 'var(--border)' }}>
                       <button
                         onClick={() => setModalOpen(false)}
                         className="btn-hover-outline px-4 py-2 rounded-full font-bold text-sm border"

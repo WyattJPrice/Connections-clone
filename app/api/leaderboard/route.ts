@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 
 export interface LeaderboardEntry {
   userName: string;
+  userImage?: string;
   dailyCount: number;
   customCount: number;
   createdCount: number;
@@ -16,7 +17,7 @@ export async function GET() {
       .select('user_id, user_name, completion_type'),
     supabaseAdmin
       .from('user_categories')
-      .select('creator_id, creator_name, created_at')
+      .select('creator_id, creator_name, creator_avatar, created_at')
       .order('created_at', { ascending: false }),
   ]);
 
@@ -29,11 +30,12 @@ export async function GET() {
 
   const byUser = new Map<
     string,
-    { userName: string; daily: number; custom: number; created: number }
+    { user_id: string; userName: string; userImage?: string; daily: number; custom: number; created: number }
   >();
 
   for (const row of completionsRes.data ?? []) {
     const existing = byUser.get(row.user_id) ?? {
+      user_id: row.user_id,
       userName: row.user_name,
       daily: 0,
       custom: 0,
@@ -45,7 +47,7 @@ export async function GET() {
   }
 
   // Categories are ordered newest-first; take the first non-empty name we see
-  // per user as their most recent display name.
+  // per user as their most recent display name + avatar.
   const namedFromCategories = new Set<string>();
   for (const row of categoriesRes.data ?? []) {
     const existing = byUser.get(row.creator_id);
@@ -53,11 +55,14 @@ export async function GET() {
       existing.created += 1;
       if (!namedFromCategories.has(row.creator_id) && row.creator_name) {
         existing.userName = row.creator_name;
+        existing.userImage = row.creator_avatar ?? undefined;
         namedFromCategories.add(row.creator_id);
       }
     } else {
       byUser.set(row.creator_id, {
+        user_id: row.creator_id,
         userName: row.creator_name,
+        userImage: row.creator_avatar ?? undefined,
         daily: 0,
         custom: 0,
         created: 1,
@@ -66,9 +71,25 @@ export async function GET() {
     }
   }
 
+  const userImages = new Map<string, string>();
+  const ids = Array.from(byUser.keys());
+  if (ids.length > 0) {
+    const { data: users, error: usersError } = await supabaseAdmin
+      .schema('next_auth')
+      .from('users')
+      .select('id, image')
+      .in('id', ids);
+    if (!usersError) {
+      for (const u of users ?? []) {
+        if (u.image) userImages.set(u.id, u.image);
+      }
+    }
+  }
+
   const entries: LeaderboardEntry[] = Array.from(byUser.values())
     .map((u) => ({
       userName: u.userName,
+      userImage: userImages.get(u.user_id) ?? u.userImage,
       dailyCount: u.daily,
       customCount: u.custom,
       createdCount: u.created,

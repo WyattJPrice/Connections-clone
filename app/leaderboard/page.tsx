@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { LeaderboardEntry } from '@/app/api/leaderboard/route';
 import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
+import { Avatar } from '@/components/ui/Avatar';
+import { ListSkeleton } from '@/components/ui/Skeleton';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
@@ -81,7 +83,7 @@ export default function LeaderboardPage() {
 
         {/* Table */}
         {loading ? (
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</p>
+          <ListSkeleton rows={8} />
         ) : sorted.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             {tab === 'created'
@@ -108,8 +110,11 @@ export default function LeaderboardPage() {
                 <span className="text-base font-black" style={{ color: 'var(--text)' }}>
                   {MEDAL[i] ?? <span className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>}
                 </span>
-                <span className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
-                  {entry.userName}
+                <span className="flex items-center gap-2 min-w-0">
+                  <Avatar src={entry.userImage} name={entry.userName} size={24} />
+                  <span className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
+                    {entry.userName}
+                  </span>
                 </span>
                 <span className="font-black text-sm tabular-nums" style={{ color: '#c2410c' }}>
                   {entry.createdCount}
@@ -140,8 +145,11 @@ export default function LeaderboardPage() {
                 <span className="text-base font-black" style={{ color: 'var(--text)' }}>
                   {MEDAL[i] ?? <span className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>}
                 </span>
-                <span className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
-                  {entry.userName}
+                <span className="flex items-center gap-2 min-w-0">
+                  <Avatar src={entry.userImage} name={entry.userName} size={24} />
+                  <span className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
+                    {entry.userName}
+                  </span>
                 </span>
                 <span className="font-black text-sm tabular-nums" style={{ color: '#ba81c5' }}>
                   {entry.dailyCount}

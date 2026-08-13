@@ -6,12 +6,14 @@ export interface Category {
   color: Color;
   words: string[];
   creatorName?: string;
+  creatorImage?: string;
 }
 
 export interface UserCategory {
   id: string;
   creatorId: string;
   creatorName: string;
+  creatorImage?: string;
   name: string;
   words: string[];
   createdAt: string;

@@ -123,8 +123,10 @@ set search_path = public
 as $$
 begin
   update user_categories uc
-    set creator_id = p_new_user_id
+    set creator_id = p_new_user_id,
+        creator_avatar = coalesce(uc.creator_avatar, nu.image, au.raw_user_meta_data->>'avatar_url')
     from auth.users au
+    left join next_auth.users nu on nu.id = p_new_user_id
     where uc.creator_id = au.id
       and lower(au.email) = lower(p_email)
       and uc.creator_id <> p_new_user_id;
