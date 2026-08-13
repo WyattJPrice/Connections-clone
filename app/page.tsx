@@ -266,9 +266,6 @@ export default function SplashPage() {
             </button>
           </div>
         </div>
-        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-          Select 4 categories to build your own puzzle.
-        </p>
 
         {/* Selected count + play button — fixed height so the grid never shifts */}
         <div className="mb-3" style={{ height: '38px' }}>
