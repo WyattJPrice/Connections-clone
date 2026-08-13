@@ -13,7 +13,7 @@ import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 import { Toast } from '@/components/ui/Toast';
 import { getCompletedCategoryIds, loadCompletedCategoryIds } from '@/lib/customProgress';
 import { useKey } from '@/lib/useKey';
-import { getSupabase } from '@/lib/supabase';
+import { useSession } from 'next-auth/react';
 
 interface PuzzleDate {
   puzzleDate: string;
@@ -46,6 +46,9 @@ export default function CustomPage() {
   const MODAL_PAGE_SIZE = 100;
   const modalPageCount = Math.max(1, Math.ceil(modalTotal / MODAL_PAGE_SIZE));
 
+  const { data: session } = useSession();
+  const userId = session?.user?.id ?? null;
+
   useKey('Escape', () => setModalOpen(false), modalOpen);
 
   useEffect(() => {
@@ -58,12 +61,10 @@ export default function CustomPage() {
       });
     };
     hydrate();
-    const { data: { subscription } } = getSupabase().auth.onAuthStateChange(() => hydrate());
     return () => {
       cancelled = true;
-      subscription.unsubscribe();
     };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     fetch('/api/puzzles')

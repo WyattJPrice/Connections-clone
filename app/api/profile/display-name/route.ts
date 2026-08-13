@@ -1,28 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { containsProfanity } from '@/lib/profanity';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
-function anonClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-}
-
-async function getUser(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  const token = authHeader.slice(7);
-  const { data } = await anonClient().auth.getUser(token);
-  return data.user ?? null;
-}
-
 export async function POST(req: NextRequest) {
-  const user = await getUser(req);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = session.user;
 
   const body = await req.json().catch(() => ({}));
   const raw = typeof body?.name === 'string' ? body.name : '';
@@ -34,8 +20,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Inappropriate language detected' }, { status: 422 });
   }
 
-  // Backfill the denormalized name in every table that snapshots it.
-  const [catsRes, completionsRes] = await Promise.all([
+  // Update the Auth.js profile (drives the session) and backfill the
+  // denormalized name in every table that snapshots it.
+  const [profileRes, catsRes, completionsRes] = await Promise.all([
+    supabaseAdmin.schema('next_auth').from('users').update({ display_name: name }).eq('id', user.id),
     supabaseAdmin
       .from('user_categories')
       .update({ creator_name: name })
@@ -46,6 +34,7 @@ export async function POST(req: NextRequest) {
       .eq('user_id', user.id),
   ]);
 
+  if (profileRes.error) return NextResponse.json({ error: profileRes.error.message }, { status: 500 });
   if (catsRes.error) return NextResponse.json({ error: catsRes.error.message }, { status: 500 });
   if (completionsRes.error) return NextResponse.json({ error: completionsRes.error.message }, { status: 500 });
 

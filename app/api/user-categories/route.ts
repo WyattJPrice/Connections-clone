@@ -3,15 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import { waitUntil } from '@vercel/functions';
 import { containsProfanity } from '@/lib/profanity';
 import { notifyNewSubmission } from '@/lib/telegram';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
-
-function anonClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-}
 
 function adminClient() {
   return createClient(
@@ -20,12 +14,9 @@ function adminClient() {
   );
 }
 
-async function getUser(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  const token = authHeader.slice(7);
-  const { data } = await anonClient().auth.getUser(token);
-  return data.user ?? null;
+async function getUser() {
+  const session = await auth();
+  return session?.user ?? null;
 }
 
 export async function GET(req: NextRequest) {
@@ -113,7 +104,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getUser(req);
+  const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();

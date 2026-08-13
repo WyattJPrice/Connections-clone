@@ -2,12 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabase } from '@/lib/supabase';
+import { useSession } from 'next-auth/react';
 import { signOut, getDisplayName, hasDisplayNameSet, updateDisplayName } from '@/lib/auth';
 import { useKey } from '@/lib/useKey';
 import { useModals } from '@/components/modals/ModalsProvider';
 import { useTheme } from '@/components/ThemeProvider';
-import type { Session } from '@supabase/supabase-js';
 
 export const NAVBAR_HEIGHT = 48; // px — used for fixed-positioning offsets
 
@@ -16,7 +15,7 @@ export function Navbar() {
   const { openStats, openLeaderboard } = useModals();
   const { resolvedTheme, setTheme } = useTheme();
 
-  const [session, setSession] = useState<Session | null>(null);
+  const { data: session, update } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -39,12 +38,6 @@ export function Navbar() {
   );
 
   useEffect(() => {
-    getSupabase().auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
       if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountOpen(false);
@@ -54,8 +47,8 @@ export function Navbar() {
   }, []);
 
   const user = session?.user;
-  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
-  const fullName = user?.user_metadata?.full_name as string | undefined;
+  const avatarUrl = user?.image as string | undefined;
+  const fullName = user?.name as string | undefined;
   const displayName = getDisplayName(user);
 
   // First-time sign-in: open the avatar dropdown into edit mode so the user
@@ -108,9 +101,8 @@ export function Navbar() {
       setNameError(result.error ?? 'Failed to save.');
       return;
     }
-    // Refresh session so the new metadata is reflected
-    const { data } = await getSupabase().auth.getSession();
-    setSession(data.session);
+    // Refresh the Auth.js session so the new display name is reflected
+    await update();
     setEditingName(false);
   }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { getSupabase } from './supabase';
+import { getSession } from 'next-auth/react';
 
 const KEY = 'connections_completed_categories';
 
@@ -28,12 +28,12 @@ export function getCompletedCategoryIds(): Set<string> {
   return readCache();
 }
 
-async function getAccessToken(): Promise<string | null> {
+async function isLoggedIn(): Promise<boolean> {
   try {
-    const { data } = await getSupabase().auth.getSession();
-    return data.session?.access_token ?? null;
+    const session = await getSession();
+    return !!session?.user;
   } catch {
-    return null;
+    return false;
   }
 }
 
@@ -43,17 +43,13 @@ async function getAccessToken(): Promise<string | null> {
  * Falls back to the local cache when logged out or offline.
  */
 export async function loadCompletedCategoryIds(): Promise<Set<string>> {
-  const token = await getAccessToken();
   const local = readCache();
-  if (!token) return local;
+  if (!(await isLoggedIn())) return local;
 
   try {
     const res = await fetch('/api/category-completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: Array.from(local) }),
     });
     if (!res.ok) return local;
@@ -77,15 +73,11 @@ export function markCategoryCompleted(id: string): void {
   writeCache(ids);
 
   void (async () => {
-    const token = await getAccessToken();
-    if (!token) return;
+    if (!(await isLoggedIn())) return;
     try {
       await fetch('/api/category-completions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: [id] }),
       });
     } catch {

@@ -3,6 +3,7 @@ import localFont from 'next/font/local';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { ModalsProvider } from '@/components/modals/ModalsProvider';
+import { AuthSessionProvider } from '@/components/auth/SessionProvider';
 import { Analytics } from '@vercel/analytics/next';
 
 const karnak = localFont({
@@ -36,7 +37,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={`${karnak.variable} ${franklin.variable} themed-scrollbar`}>
       <body>
         <ThemeProvider>
-          <ModalsProvider>{children}</ModalsProvider>
+          <AuthSessionProvider>
+            <ModalsProvider>{children}</ModalsProvider>
+          </AuthSessionProvider>
         </ThemeProvider>
         <Analytics />
       </body>

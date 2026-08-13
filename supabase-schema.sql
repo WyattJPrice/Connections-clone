@@ -64,7 +64,7 @@ alter table categories add column if not exists creator_name text;
 -- User-created categories (individual, not full puzzles)
 create table if not exists user_categories (
   id uuid primary key default gen_random_uuid(),
-  creator_id uuid references auth.users(id) on delete cascade not null,
+  creator_id uuid references next_auth.users(id) on delete cascade not null,
   creator_name text not null,
   name text not null,
   words text[] not null,
@@ -98,7 +98,7 @@ create policy "User delete user_categories"
 -- Puzzle completions (for leaderboard — logged-in users only)
 create table if not exists puzzle_completions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null,
+  user_id uuid references next_auth.users(id) on delete cascade not null,
   user_name text not null,
   completion_type text not null check (completion_type in ('daily', 'custom')),
   puzzle_date text, -- YYYY-MM-DD for daily, null for custom
@@ -119,7 +119,7 @@ create policy "User insert puzzle_completions"
 -- Per-user record of which user_categories have been solved.
 -- Powers the "Solved" badges in /custom and the shuffle filter cross-device.
 create table if not exists category_completions (
-  user_id uuid references auth.users(id) on delete cascade not null,
+  user_id uuid references next_auth.users(id) on delete cascade not null,
   category_id uuid references user_categories(id) on delete cascade not null,
   completed_at timestamptz default now(),
   primary key (user_id, category_id)
@@ -155,3 +155,29 @@ begin
   alter publication supabase_realtime add table user_categories;
 exception when duplicate_object then null;
 end $$;
+
+-- ============================================================================
+-- Auth.js (next-auth v5) + @auth/supabase-adapter
+--
+-- The adapter stores users/sessions/accounts in a `next_auth` schema (NOT
+-- Supabase Auth's auth.users). The full DDL + grants live in
+-- `supabase-authjs-migration.sql`; this section documents the contract.
+--
+-- Key points:
+--   * user_categories.creator_id, puzzle_completions.user_id and
+--     category_completions.user_id now reference next_auth.users(id)
+--     (on delete cascade) instead of auth.users(id).
+--   * next_auth.users gained a `display_name` column for the user's chosen
+--     display name; `name` keeps the Google profile name.
+--   * public.relink_legacy_user(email, new_user_id) remaps legacy rows that
+--     were keyed by an old auth.users id to the matching next_auth.users id.
+--     Auth.js calls it on every sign-in (see auth.ts events.signIn).
+--   * The `next_auth` schema must be exposed to the PostgREST API
+--     (Project Settings -> API -> Exposed schemas) and has RLS enabled with
+--     no policies so only the service role can touch it.
+--   * The new FKs are added NOT VALID; run
+--       alter table user_categories    validate constraint user_categories_creator_id_fkey;
+--       alter table puzzle_completions validate constraint puzzle_completions_user_id_fkey;
+--       alter table category_completions validate constraint category_completions_user_id_fkey;
+--     after all legacy users have signed back in.
+-- ============================================================================

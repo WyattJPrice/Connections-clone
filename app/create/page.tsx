@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getSupabase } from '@/lib/supabase';
+import { useSession } from 'next-auth/react';
 import { getDisplayName } from '@/lib/auth';
 import { containsProfanity } from '@/lib/profanity';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
@@ -9,7 +9,6 @@ import { Navbar, NAVBAR_HEIGHT } from '@/components/layout/Navbar';
 import { Toast } from '@/components/ui/Toast';
 import { UserCategory } from '@/lib/types';
 import { useKey } from '@/lib/useKey';
-import type { Session } from '@supabase/supabase-js';
 
 type Tab = 'mine' | 'create';
 
@@ -20,7 +19,7 @@ interface EditState {
 }
 
 export default function CreatePage() {
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const { data: session, status } = useSession();
   const [tab, setTab] = useState<Tab>('mine');
   const [myCategories, setMyCategories] = useState<UserCategory[]>([]);
   const [loadingCats, setLoadingCats] = useState(false);
@@ -45,28 +44,17 @@ export default function CreatePage() {
     !!editState || tab === 'create'
   );
 
-  useEffect(() => {
-    getSupabase().auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => subscription.unsubscribe();
-  }, []);
-
   const user = session?.user;
   const firstName = getDisplayName(user);
 
   useEffect(() => {
     if (!user) return;
     setLoadingCats(true);
-    getSupabase().auth.getSession().then(async ({ data }) => {
-      const token = data.session?.access_token;
-      if (!token) return;
-      const r = await fetch(`/api/user-categories?myId=${user.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const d = await r.json();
-      setMyCategories(d.categories ?? []);
-      setLoadingCats(false);
-    });
+    fetch(`/api/user-categories?myId=${user.id}`)
+      .then((r) => r.json())
+      .then((d) => setMyCategories(d.categories ?? []))
+      .catch(() => setMyCategories([]))
+      .finally(() => setLoadingCats(false));
   }, [user]);
 
   function handleNewNameChange(val: string) {
@@ -96,11 +84,9 @@ export default function CreatePage() {
     }
     setSaving(true);
     try {
-      const { data: { session: s } } = await getSupabase().auth.getSession();
-      const token = s?.access_token;
       const r = await fetch('/api/user-categories', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorName: firstName, name: newName, words: newWords }),
       });
       const d = await r.json();
@@ -119,11 +105,8 @@ export default function CreatePage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this category?')) return;
-    const { data: { session: s } } = await getSupabase().auth.getSession();
-    const token = s?.access_token;
     await fetch(`/api/user-categories/${id}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
     });
     setMyCategories((prev) => prev.filter((c) => c.id !== id));
     setToast('Deleted.');
@@ -146,11 +129,9 @@ export default function CreatePage() {
     }
     setEditSaving(true);
     try {
-      const { data: { session: s } } = await getSupabase().auth.getSession();
-      const token = s?.access_token;
       const r = await fetch(`/api/user-categories/${editState.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editState.name, words: editState.words }),
       });
       const d = await r.json();
@@ -166,7 +147,7 @@ export default function CreatePage() {
   }
 
   // Loading auth
-  if (session === undefined) {
+  if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
         <p style={{ color: 'var(--text-muted)' }}>Loading…</p>

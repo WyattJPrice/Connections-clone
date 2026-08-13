@@ -1,6 +1,6 @@
 'use client';
 
-import { getSupabase } from './supabase';
+import { getSession } from 'next-auth/react';
 import { getDisplayName } from './auth';
 
 export async function recordCompletion(
@@ -8,16 +8,13 @@ export async function recordCompletion(
   puzzleDate?: string
 ) {
   try {
-    const { data: { session } } = await getSupabase().auth.getSession();
-    if (!session) return;
+    const session = await getSession();
+    if (!session?.user) return;
     const userName = getDisplayName(session.user);
 
     await fetch('/api/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ completionType, puzzleDate, userName }),
     });
   } catch {

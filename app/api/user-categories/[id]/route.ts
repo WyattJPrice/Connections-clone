@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { containsProfanity } from '@/lib/profanity';
-
-function anonClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-}
+import { auth } from '@/auth';
 
 function adminClient() {
   return createClient(
@@ -16,18 +10,15 @@ function adminClient() {
   );
 }
 
-async function getUser(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  const token = authHeader.slice(7);
-  const { data } = await anonClient().auth.getUser(token);
-  return data.user ?? null;
+async function getUser() {
+  const session = await auth();
+  return session?.user ?? null;
 }
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PUT(req: NextRequest, ctx: RouteContext) {
-  const user = await getUser(req);
+  const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await ctx.params;
@@ -76,8 +67,8 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   });
 }
 
-export async function DELETE(req: NextRequest, ctx: RouteContext) {
-  const user = await getUser(req);
+export async function DELETE(_req: NextRequest, ctx: RouteContext) {
+  const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await ctx.params;
