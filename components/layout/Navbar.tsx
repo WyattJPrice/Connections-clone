@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { signOut, getDisplayName, hasDisplayNameSet, updateDisplayName } from '@/lib/auth';
@@ -19,6 +20,7 @@ export function Navbar() {
   const { data: session, update } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [gameOpen, setGameOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
@@ -26,6 +28,7 @@ export function Navbar() {
   const promptedFirstTime = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
+  const gameRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   useKey(
@@ -34,6 +37,7 @@ export function Navbar() {
       if (editingName) { setEditingName(false); setNameError(null); }
       setMenuOpen(false);
       setAccountOpen(false);
+      setGameOpen(false);
     },
     menuOpen || accountOpen || editingName
   );
@@ -42,6 +46,7 @@ export function Navbar() {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
       if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountOpen(false);
+      if (gameRef.current && !gameRef.current.contains(e.target as Node)) setGameOpen(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -203,13 +208,59 @@ export function Navbar() {
           )}
         </div>
 
-        <button
-          onClick={() => router.push('/')}
-          className="font-black text-2xl tracking-tight px-2 py-1 rounded-md"
-          style={{ color: 'var(--text)', fontFamily: 'var(--font-karnak)' }}
+        {/* ── Game switcher: title links home, hover/click drops down to Pictionary ── */}
+        <div
+          ref={gameRef}
+          className="relative flex items-center gap-1"
+          onMouseEnter={() => setGameOpen(true)}
+          onMouseLeave={() => setGameOpen(false)}
         >
-          Connections
-        </button>
+          <Link
+            href="/"
+            className="font-black text-2xl tracking-tight px-2 py-1 rounded-md no-underline"
+            style={{ color: 'var(--text)', fontFamily: 'var(--font-karnak)' }}
+          >
+            Connections
+          </Link>
+          <button
+            onClick={() => setGameOpen((v) => !v)}
+            aria-label="Switch games"
+            aria-expanded={gameOpen}
+            className="flex items-center"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ transform: gameOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+
+          {gameOpen && (
+            <div
+              className="absolute left-0 top-full z-50 rounded-xl border px-4 py-1.5 shadow-lg"
+              style={{ backgroundColor: 'var(--modal-bg)', borderColor: 'var(--border)' }}
+            >
+              <a
+                href="https://pictionary.classlink.fun"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block whitespace-nowrap text-xl font-bold no-underline"
+                style={{ color: 'var(--text)', fontFamily: 'var(--font-pangolin)' }}
+              >
+                Pictionary
+              </a>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Right: stats / settings / account ────────────────────────────── */}
@@ -243,7 +294,7 @@ export function Navbar() {
           >
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt={fullName ?? 'Account'} className="w-full h-full object-cover" />
+              <img src={avatarUrl} alt={fullName ?? 'Account'} loading="lazy" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
             ) : (
               /* ─────── ICON: ACCOUNT FALLBACK / PERSON (replace svg below) ─────── */
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { ModalsProvider } from '@/components/modals/ModalsProvider';
 import { AuthSessionProvider } from '@/components/auth/SessionProvider';
+import { OnlineShell } from '@/components/online/OnlineShell';
 import { Analytics } from '@vercel/analytics/next';
 
 const karnak = localFont({
@@ -16,6 +17,12 @@ const franklin = localFont({
   src: '../public/fonts/franklin-normal-700.ttf',
   weight: '700',
   variable: '--font-franklin',
+});
+
+const pangolin = localFont({
+  src: '../public/fonts/pangolin-regular.ttf',
+  weight: '400',
+  variable: '--font-pangolin',
 });
 
 export const metadata: Metadata = {
@@ -34,11 +41,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${karnak.variable} ${franklin.variable} themed-scrollbar`}>
+    <html lang="en" suppressHydrationWarning className={`${karnak.variable} ${franklin.variable} ${pangolin.variable} themed-scrollbar`}>
       <body>
         <ThemeProvider>
           <AuthSessionProvider>
             <ModalsProvider>{children}</ModalsProvider>
+            <OnlineShell game="connections" />
           </AuthSessionProvider>
         </ThemeProvider>
         <Analytics />

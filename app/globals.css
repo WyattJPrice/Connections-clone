@@ -16,6 +16,7 @@
     --button-text: #ffffff;
     --outline-button-border: #1a1a1a;
     --navbar-hover-bg: #ebebeb;
+    --accent-badge-blue: #2f5fd9;
   }
 
   [data-theme="dark"] {
@@ -33,6 +34,7 @@
     --button-text: #121213;
     --outline-button-border: #ffffff;
     --navbar-hover-bg: #363636;
+    --accent-badge-blue: #2f5fd9;
   }
 
   * {
@@ -169,6 +171,16 @@
   }
 }
 
+@keyframes slide-in-right {
+  0% {
+    transform: translateX(100%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
 .animate-shake {
   animation: shake 0.5s ease-in-out;
 }
@@ -195,6 +207,19 @@
 
 .animate-merge {
   animation: merge-up 0.3s ease-in forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.25s ease-out;
+}
+
+@keyframes toast-in {
+  0% { transform: translateY(16px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.25s ease-out;
 }
 
 /* ── Button hover helpers ─────────────────────────────────────────────────── */

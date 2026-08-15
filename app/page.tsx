@@ -221,6 +221,20 @@ export default function SplashPage() {
             >
               Play Custom
             </button>
+            <a
+              href="https://pictionary.classlink.fun"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-hover-outline w-full py-3 rounded-full font-bold text-base text-center no-underline"
+              style={{
+                backgroundColor: 'transparent',
+                color: '#1a1a1a',
+                border: '2px solid #1a1a1a',
+                opacity: 0.7,
+              }}
+            >
+              Play Pictionary
+            </a>
           </div>
 
           {/* Date and puzzle number */}
@@ -244,7 +258,7 @@ export default function SplashPage() {
               <button
                 onClick={handleShuffle}
                 disabled={catsLoading}
-                className="btn-hover-outline w-10 h-10 rounded-lg border flex items-center justify-center disabled:opacity-40 shrink-0"
+                className="btn-hover-outline w-8 h-8 rounded-lg border flex items-center justify-center disabled:opacity-40 shrink-0"
                 style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--tile-bg)' }}
                 aria-label="Shuffle — pick 4 random categories"
               >

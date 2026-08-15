@@ -29,6 +29,8 @@ export function Avatar({ src, name, size = 20 }: AvatarProps) {
         alt={name ?? 'Avatar'}
         width={size}
         height={size}
+        loading="lazy"
+        referrerPolicy="no-referrer"
         className="rounded-full shrink-0 object-cover"
         style={{ width: size, height: size }}
       />
