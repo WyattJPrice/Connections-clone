@@ -225,7 +225,7 @@ export default function SplashPage() {
               href="https://pictionary.classlink.fun"
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-hover-outline w-full py-3 rounded-full font-bold text-base text-center no-underline"
+              className="btn-hover-outline w-full py-3 rounded-full text-center no-underline flex items-center justify-center gap-2.5"
               style={{
                 backgroundColor: 'transparent',
                 color: '#1a1a1a',
@@ -233,7 +233,16 @@ export default function SplashPage() {
                 opacity: 0.7,
               }}
             >
-              Play Pictionary
+              {/* Pictionary pencil logo + title font (Pangolin) */}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                <path d="M2 2l7.586 7.586" />
+                <circle cx="11" cy="11" r="2" />
+              </svg>
+              <span style={{ fontFamily: 'var(--font-pangolin)', fontSize: '1.35rem', lineHeight: 1 }}>
+                Pictionary
+              </span>
             </a>
           </div>
 
