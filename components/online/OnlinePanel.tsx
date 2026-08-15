@@ -4,9 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { OnlineUser, GameName } from '@/lib/presence';
 import { DirectMessage, fetchThread, sendDirectMessage } from '@/lib/messages';
-import { getSupabase } from '@/lib/supabase';
 import { Avatar } from '@/components/ui/Avatar';
-import { dmChannel } from '@/lib/realtime';
 import { ProfileMenu } from '@/components/online/ProfileMenu';
 
 const GAME_LABELS: Record<GameName, string> = {
@@ -31,6 +29,7 @@ interface OnlinePanelProps {
   onOpenThread: (userId: string) => void;
   onCloseThread: () => void;
   onClose: () => void;
+  liveMessage: DirectMessage | null;
 }
 
 export function OnlinePanel({
@@ -41,6 +40,7 @@ export function OnlinePanel({
   onOpenThread,
   onCloseThread,
   onClose,
+  liveMessage,
 }: OnlinePanelProps) {
   const { data: session } = useSession();
   const me = session?.user?.id;
@@ -70,7 +70,7 @@ export function OnlinePanel({
         style={{ backgroundColor: 'var(--modal-bg)', borderLeft: '1px solid var(--border)' }}
       >
         {activeThreadId ? (
-          <ThreadView users={users} otherUserId={activeThreadId} onBack={onCloseThread} onClose={onClose} />
+          <ThreadView users={users} otherUserId={activeThreadId} onBack={onCloseThread} onClose={onClose} liveMessage={liveMessage} />
         ) : (
           <>
             <header
@@ -204,11 +204,13 @@ function ThreadView({
   otherUserId,
   onBack,
   onClose,
+  liveMessage,
 }: {
   users: OnlineUser[];
   otherUserId: string;
   onBack: () => void;
   onClose: () => void;
+  liveMessage: DirectMessage | null;
 }) {
   const { data: session } = useSession();
   const me = session?.user?.id;
@@ -251,27 +253,25 @@ function ThreadView({
     };
   }, [otherUserId]);
 
-  // Live incoming DMs via realtime broadcast on the recipient's channel.
-  useEffect(() => {
-    if (!me) return;
-    const supabase = getSupabase();
-    const channel = supabase
-      .channel(dmChannel(me))
-      .on('broadcast', { event: 'message' }, (payload) => {
-        const msg = payload.payload as DirectMessage;
-        if (msg && (msg.senderId === otherUserId || msg.recipientId === otherUserId)) {
-          setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
-        }
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [me, otherUserId]);
+  // Live incoming DMs arrive via OnlineShell's single realtime subscription and
+  // the unread-poll fallback, forwarded through the `liveMessage` prop. (This
+  // thread used to subscribe to the same dm:<me> channel itself — that duplicate
+  // topic join could knock out the toast channel, so it was removed.) Derived
+  // during render rather than appended with a state-updating effect.
+  const displayMessages = useMemo(() => {
+    if (
+      !liveMessage ||
+      (liveMessage.senderId !== otherUserId && liveMessage.recipientId !== otherUserId) ||
+      messages.some((m) => m.id === liveMessage.id)
+    ) {
+      return messages;
+    }
+    return [...messages, liveMessage];
+  }, [messages, liveMessage, otherUserId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages]);
+  }, [displayMessages]);
 
   async function handleSend() {
     if (sending || !draft.trim()) return;
@@ -324,12 +324,12 @@ function ThreadView({
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto themed-scrollbar px-3 py-3 flex flex-col gap-1.5">
-        {messages.length === 0 ? (
+        {displayMessages.length === 0 ? (
           <p className="text-sm text-center mt-6" style={{ color: 'var(--text-muted)' }}>
             No messages yet. Say hi!
           </p>
         ) : (
-          messages.map((m) => {
+          displayMessages.map((m) => {
             const mine = m.senderId === me;
             return (
               <div key={m.id} className={mine ? 'flex justify-end' : 'flex justify-start'}>

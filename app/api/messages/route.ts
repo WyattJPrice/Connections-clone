@@ -102,6 +102,18 @@ export async function POST(req: NextRequest) {
 
   const sender = await getSenderProfile(me);
 
+  // Fire-and-forget: push the DM to the recipient's subscriptions so they get
+  // notified even when the site is closed. The service worker suppresses the
+  // notification when the app is open (the live broadcast handles that case).
+  // Fired BEFORE the live broadcast so offline delivery isn't delayed by the
+  // realtime socket round-trip below.
+  void sendPushToUser(recipientId, {
+    title: `${sender?.senderName ?? 'Someone'} sent you a message`,
+    body: data.body,
+    tag: `dm:${me}`,
+    url: '/',
+  });
+
   // Deliver live to the recipient via their realtime broadcast channel.
   try {
     const channel = supabaseAdmin.channel(dmChannel(recipientId));
@@ -123,16 +135,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('[messages] broadcast error:', err);
   }
-
-  // Fire-and-forget: push the DM to the recipient's subscriptions so they get
-  // notified even when the site is closed. The service worker suppresses the
-  // notification when the app is open (the live broadcast handles that case).
-  void sendPushToUser(recipientId, {
-    title: `${sender?.senderName ?? 'Someone'} sent you a message`,
-    body: data.body,
-    tag: `dm:${me}`,
-    url: '/',
-  });
 
   return NextResponse.json({
     message: {

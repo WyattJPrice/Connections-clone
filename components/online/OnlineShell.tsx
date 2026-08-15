@@ -6,16 +6,8 @@ import { startHeartbeat, sendHeartbeat, fetchOnlineUsers, OnlineUser, GameName }
 import { getSupabase } from '@/lib/supabase';
 import { OnlinePanel } from '@/components/online/OnlinePanel';
 import { Avatar } from '@/components/ui/Avatar';
-import { dmChannel } from '@/lib/realtime';
-
-interface IncomingMessage {
-  id: string;
-  senderId: string;
-  senderName?: string;
-  senderImage?: string | null;
-  body: string;
-  createdAt: string;
-}
+import { DirectMessage, markMessagesRead } from '@/lib/messages';
+import { subscribeLiveThreads, subscribeLiveToasts, LiveDm } from '@/lib/dm-live';
 
 interface ToastState {
   senderId: string;
@@ -38,19 +30,14 @@ export function OnlineShell({ game }: OnlineShellProps) {
   const [toast, setToast] = useState<ToastState | null>(null);
   const heartbeatCleanup = useRef<(() => void) | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track the latest state inside the realtime callback without re-subscribing.
-  const stateRef = useRef({ open, activeThreadId });
+  // Live message routed to the open thread (the panel no longer subscribes to
+  // the realtime channel itself).
+  const [liveMessage, setLiveMessage] = useState<DirectMessage | null>(null);
   const prevUserId = useRef<string | undefined>(undefined);
 
   // Only signed-in users can view who's online and send messages.
   const isAuthenticated = status === 'authenticated' && !!userId;
 
-  useEffect(() => {
-    stateRef.current = { open, activeThreadId };
-  }, [open, activeThreadId]);
-
-  // If the session disappears without a page unload (client-side sign-out,
-  // session expiry), drop presence immediately so we stop showing as online.
   useEffect(() => {
     const prev = prevUserId.current;
     prevUserId.current = userId;
@@ -102,43 +89,70 @@ export function OnlineShell({ game }: OnlineShellProps) {
     };
   }, [userId]);
 
-  // Live incoming DMs: in-app toast when the tab is visible. System
-  // notifications / push are handled solely by the classlink hub.
+  // Live incoming DMs: subscription + unread-poll fallback live in the dm-live
+  // singleton so there is exactly ONE realtime channel on dm:<me> in the app.
+  // (Components used to each subscribe to that topic, and the duplicate
+  // join/leave while opening/closing a thread could knock the toast channel
+  // out — toasts then silently stopped until refresh.)
+  const notify = useCallback((msg: LiveDm) => {
+    const senderName = msg.senderName || 'Someone';
+    const senderImage = msg.senderImage ?? null;
+
+    // Tab is hidden → skip; classlink.fun owns notifications.
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+
+    // Visible → in-app toast.
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ senderId: msg.senderId, senderName, senderImage, body: msg.body });
+    toastTimer.current = setTimeout(() => setToast(null), 6000);
+  }, []);
+
+  // Route a DM to the panel's open thread, or toast it. Used by the singleton's
+  // thread subscription (panel is viewing that sender) and toast subscription.
+  const handleLiveMessage = useCallback(
+    (msg: LiveDm) => {
+      if (!msg || !msg.id) return;
+      if (open && activeThreadId === msg.senderId) {
+        setLiveMessage({
+          id: msg.id,
+          senderId: msg.senderId,
+          recipientId: msg.recipientId ?? msg.senderId,
+          body: msg.body,
+          createdAt: msg.createdAt,
+          readAt: msg.readAt ?? null,
+        });
+        return;
+      }
+      notify(msg);
+    },
+    [open, activeThreadId, notify]
+  );
+
+  // Messages for the thread currently open in the panel.
   useEffect(() => {
     if (!userId) return;
-    const supabase = getSupabase();
+    return subscribeLiveThreads(userId, open ? activeThreadId : null, (msg) => {
+      if (open && activeThreadId === msg.senderId) {
+        setLiveMessage({
+          id: msg.id,
+          senderId: msg.senderId,
+          recipientId: msg.recipientId ?? msg.senderId,
+          body: msg.body,
+          createdAt: msg.createdAt,
+          readAt: msg.readAt ?? null,
+        });
+        // It's shown in the open thread, so it's read — otherwise the unread
+        // poll would re-toast it after the thread closes.
+        if (msg.senderId !== userId) markMessagesRead([msg.id]);
+      }
+    });
+  }, [userId, open, activeThreadId]);
 
-    const notify = (msg: IncomingMessage) => {
-      const { open: isOpen, activeThreadId: currentThread } = stateRef.current;
-      // Already looking at this conversation — the panel handles it live.
-      if (isOpen && currentThread === msg.senderId) return;
-
-      const senderName = msg.senderName || 'Someone';
-      const senderImage = msg.senderImage ?? null;
-
-      // Tab is hidden → skip; classlink.fun owns notifications.
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-
-      // Visible → in-app toast.
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-      setToast({ senderId: msg.senderId, senderName, senderImage, body: msg.body });
-      toastTimer.current = setTimeout(() => setToast(null), 6000);
-    };
-
-    const channel = supabase
-      .channel(dmChannel(userId))
-      .on('broadcast', { event: 'message' }, (payload) => {
-        const msg = payload.payload as IncomingMessage;
-        if (!msg || msg.senderId === userId) return;
-        notify(msg);
-      })
-      .subscribe();
-
-    return () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-      supabase.removeChannel(channel);
-    };
-  }, [userId]);
+  // Toasts for messages not shown in any open thread.
+  useEffect(() => {
+    if (!userId) return;
+    return subscribeLiveToasts(userId, handleLiveMessage);
+  }, [userId, handleLiveMessage]);
 
   function handleToggle() {
     const nextOpen = !open;
@@ -190,6 +204,7 @@ export function OnlineShell({ game }: OnlineShellProps) {
           onOpenThread={setActiveThreadId}
           onCloseThread={closeThread}
           onClose={() => setOpen(false)}
+          liveMessage={liveMessage}
         />
       )}
 

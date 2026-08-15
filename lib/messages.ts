@@ -49,3 +49,39 @@ export async function sendDirectMessage(
     return { ok: false, error: 'Failed to send message.' };
   }
 }
+
+export interface UnreadMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderImage?: string | null;
+  body: string;
+  createdAt: string;
+  readAt?: string | null;
+}
+
+// DB-backed fallback for DM delivery: realtime broadcasts are fire-and-forget,
+// so this gives the client a way to recover toasts that were dropped.
+export async function fetchUnreadMessages(): Promise<UnreadMessage[]> {
+  try {
+    const res = await fetch('/api/messages/unread', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.latest) ? data.latest : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function markMessagesRead(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  try {
+    await fetch('/api/messages/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+  } catch {
+    // best-effort
+  }
+}

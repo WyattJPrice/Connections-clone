@@ -56,7 +56,12 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         try {
           await webpush.sendNotification(
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-            message
+            message,
+            // 'high' urgency → the push service (FCM/APNs) delivers immediately
+            // instead of deferring normal-priority pushes on backgrounded or
+            // battery-optimized devices (the cause of slow arrival). TTL bounds
+            // staleness while still surviving short offline windows.
+            { urgency: 'high', TTL: 604800 }
           );
         } catch (err) {
           const statusCode = (err as { statusCode?: number } | undefined)?.statusCode;
