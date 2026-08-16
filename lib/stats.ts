@@ -18,11 +18,31 @@ const defaultStats: Stats = {
   customWins: 0,
 };
 
+interface ServerResultPayload {
+  type: 'daily' | 'custom';
+  puzzleDate?: string;
+  won: boolean;
+  mistakes: number;
+  purpleFirst?: boolean;
+}
+
+// Mirror a completed game to the user's account so stats follow them across
+// devices. No-op (401) for signed-out users — they keep localStorage only.
+function syncResultToServer(result: ServerResultPayload): void {
+  if (typeof window === 'undefined') return;
+  fetch('/api/stats', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(result),
+  }).catch(() => {});
+}
+
 export function incrementCustomWins(): void {
   if (typeof window === 'undefined') return;
   const stats = getStats();
   stats.customWins = (stats.customWins ?? 0) + 1;
   saveStats(stats);
+  syncResultToServer({ type: 'custom', won: true, mistakes: 0 });
 }
 
 export function getStats(): Stats {
@@ -112,6 +132,9 @@ export function recordGameResult(
   }
 
   saveStats(stats);
+
+  // Mirror to the account so stats follow the user across devices
+  syncResultToServer({ type: 'daily', puzzleDate, won, mistakes, purpleFirst });
 
   // Fire-and-forget to server for aggregate admin stats
   fetch('/api/game/result', {

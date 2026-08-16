@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { getStats } from '@/lib/stats';
 import { Stats } from '@/lib/types';
 import { useKey } from '@/lib/useKey';
@@ -11,15 +12,39 @@ interface StatsModalProps {
 }
 
 export function StatsModal({ onClose }: StatsModalProps) {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const { data: session } = useSession();
+  const [stats, setStats] = useState<Stats | null>(() => getStats());
   useKey('Escape', onClose);
 
   useEffect(() => {
-    // Read immediately, then re-read after a tick in case stats were just written
-    setStats(getStats());
+    // Re-read after a tick in case stats were just written
     const t = setTimeout(() => setStats(getStats()), 50);
-    return () => clearTimeout(t);
-  }, []);
+    const userId = session?.user?.id;
+    if (!userId) return () => clearTimeout(t);
+
+    // Signed-in: prefer the account-wide stats from the server so the dialog
+    // shows the same numbers on every device. Falls back to localStorage if
+    // the request fails.
+    let cancelled = false;
+    const fetchServer = async () => {
+      try {
+        const res = await fetch('/api/stats');
+        if (!res.ok) return;
+        const data: { stats?: Stats | null } = await res.json();
+        if (!cancelled && data.stats) setStats(data.stats);
+      } catch {
+        // Keep local stats on failure
+      }
+    };
+    fetchServer();
+    // Re-fetch shortly after in case a just-finished game is still syncing.
+    const t2 = setTimeout(fetchServer, 600);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(t2);
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
 
   const winPct = stats && stats.gamesPlayed > 0
     ? Math.round((stats.gamesWon / stats.gamesPlayed) * 100)
